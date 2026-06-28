@@ -47,8 +47,6 @@
 
 body {
   @apply m-0 bg-background text-slate-950 antialiased;
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
 }
 
 ::selection {
@@ -125,6 +123,33 @@ body {
 
 .animate-spin-rev {
   animation: spin-slow 7s linear infinite reverse;
+}
+
+/* Infinite testimonial marquee — rows are duplicated, so -50% loops seamlessly. */
+@keyframes scroll-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scroll-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-scroll-left {
+  animation: scroll-left 40s linear infinite;
+}
+
+.animate-scroll-right {
+  animation: scroll-right 40s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

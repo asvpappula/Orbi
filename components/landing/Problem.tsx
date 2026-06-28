@@ -1,28 +1,55 @@
+const PROBLEMS = [
+  {
+    num: "01",
+    emoji: "🗂️",
+    title: "Scattered everywhere",
+    body: "Your assignments are in Canvas, emails in Gmail, messages in Slack and Discord. Nothing talks to each other.",
+  },
+  {
+    num: "02",
+    emoji: "🤖",
+    title: "AI that actually knows you",
+    body: "Learns how you write and think, drafts replies in your exact voice. You just confirm.",
+  },
+  {
+    num: "03",
+    emoji: "✅",
+    title: "One calm place",
+    body: "Everything urgent surfaces automatically. Reply to anyone without switching apps.",
+  },
+];
+
 export function Problem() {
   return (
-    <section className="page-shell pb-12 sm:pb-20">
-      <div className="relative overflow-hidden rounded-[32px] bg-[#29236f] px-6 py-16 text-white shadow-[0_32px_90px_-36px_rgba(49,46,129,0.75)] sm:px-10 sm:py-20 lg:px-16 lg:py-24">
-        <div className="absolute -right-20 -top-32 size-96 rounded-full border-[70px] border-white/[0.035]" />
-        <div className="absolute bottom-0 left-1/3 h-px w-1/2 bg-gradient-to-r from-transparent via-indigo-300/40 to-transparent" />
+    <section id="features" className="scroll-mt-24 bg-white px-6 py-24 sm:py-32">
+      <div className="mx-auto max-w-6xl">
+        <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+          The problem
+        </p>
+        <h2 className="mx-auto mt-4 max-w-2xl text-center text-4xl font-bold tracking-[-0.03em] text-slate-900 sm:text-5xl">
+          You&apos;re juggling too many tabs.
+        </h2>
 
-        <div className="relative grid items-end gap-16 lg:grid-cols-[1.3fr_0.7fr]">
-          <blockquote className="max-w-4xl text-2xl font-medium leading-[1.45] tracking-[-0.035em] text-indigo-100 sm:text-4xl lg:text-[2.7rem]">
-            <span className="block">You have the assignment on Canvas.</span>
-            <span className="block text-white">The rubric landed in Gmail.</span>
-            <span className="block">Your study group is losing it on Discord.</span>
-            <span className="mt-7 block text-indigo-300">
-              And you&apos;re still opening 6 different apps.
-            </span>
-          </blockquote>
-
-          <div className="lg:justify-self-end lg:text-right">
-            <p className="text-[11rem] font-black leading-[0.68] tracking-[-0.1em] text-white sm:text-[15rem] lg:text-[18rem]">
-              6
-            </p>
-            <p className="mt-10 max-w-[240px] text-xl font-semibold leading-tight text-indigo-200 lg:ml-auto lg:text-2xl">
-              apps. for one assignment.
-            </p>
-          </div>
+        <div className="mt-14 grid gap-6 md:grid-cols-3">
+          {PROBLEMS.map((item) => (
+            <div
+              key={item.num}
+              className="rounded-2xl bg-white p-8 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.18)] ring-1 ring-slate-100"
+            >
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                  {item.num}
+                </span>
+                <span className="text-2xl" aria-hidden="true">
+                  {item.emoji}
+                </span>
+              </div>
+              <h3 className="mt-5 text-xl font-semibold tracking-[-0.02em] text-slate-900">
+                {item.title}
+              </h3>
+              <p className="mt-2 leading-relaxed text-slate-500">{item.body}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

@@ -1,26 +1,20 @@
-import { AIReplies } from "@/components/landing/AIReplies";
-import { ContextFeature } from "@/components/landing/ContextFeature";
+import { Features } from "@/components/landing/Features";
 import { Footer } from "@/components/landing/Footer";
 import { Hero } from "@/components/landing/Hero";
 import { Navbar } from "@/components/landing/Navbar";
-import { Pricing } from "@/components/landing/Pricing";
 import { Problem } from "@/components/landing/Problem";
+import { Testimonials } from "@/components/landing/Testimonials";
 import { WaitlistCTA } from "@/components/landing/WaitlistCTA";
 
 export default function Home() {
   return (
-    <div className="overflow-clip">
+    <div className="overflow-clip bg-white">
       <Navbar />
       <main>
         <Hero />
         <Problem />
-        <div id="features" className="scroll-mt-28">
-          <ContextFeature />
-        </div>
-        <div id="how" className="scroll-mt-28">
-          <AIReplies />
-        </div>
-        <Pricing />
+        <Features />
+        <Testimonials />
         <WaitlistCTA />
       </main>
       <Footer />

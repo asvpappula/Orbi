@@ -1,36 +1,77 @@
-import { ArrowRight } from "lucide-react";
+"use client";
+
+import { FormEvent, useState } from "react";
+import { LoaderCircle } from "lucide-react";
 
 export function WaitlistCTA() {
-  return (
-    <section id="waitlist" className="page-shell py-20 sm:py-28">
-      <div className="grid items-end gap-12 border-y border-indigo-100 py-16 sm:py-20 lg:grid-cols-[0.75fr_1.25fr] lg:gap-20">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-primary">
-            Your tabs can wait
-          </p>
-          <h2 className="mt-4 text-[clamp(5.5rem,15vw,12rem)] font-black leading-[0.72] tracking-[-0.09em] text-slate-950">
-            Ready?
-          </h2>
-        </div>
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">(
+    "idle",
+  );
 
-        <div className="lg:pb-1">
-          <p className="mb-6 max-w-lg text-lg leading-relaxed text-slate-600">
-            Sign in with Google and bring your student life into one inbox.
-            Zero tab archaeology.
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("loading");
+    try {
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (!response.ok) throw new Error("Request failed");
+      setStatus("done");
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  return (
+    <section id="waitlist" className="scroll-mt-24 bg-primary px-6 py-24 sm:py-32">
+      <div className="mx-auto max-w-2xl text-center">
+        <h2 className="text-4xl font-bold tracking-[-0.03em] text-white sm:text-5xl">
+          Be the first to try Orbi
+        </h2>
+        <p className="mt-4 text-lg text-indigo-100">
+          No spam. Early access to students and founders first.
+        </p>
+
+        {status === "done" ? (
+          <p className="mt-10 text-2xl font-semibold text-white">
+            You&apos;re on the list 🎉
           </p>
-          <div className="glass rounded-[26px] p-2 sm:flex">
-            <a
-              href="/login"
-              className="group flex h-14 w-full shrink-0 items-center justify-center gap-2 rounded-[19px] bg-primary px-6 text-sm font-bold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:bg-indigo-500 sm:h-16"
+        ) : (
+          <form
+            onSubmit={submit}
+            className="mx-auto mt-10 flex max-w-md flex-col gap-3 sm:flex-row"
+          >
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@university.edu"
+              disabled={status === "loading"}
+              className="h-14 w-full rounded-full bg-white px-6 text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-white/70 disabled:opacity-70"
+            />
+            <button
+              type="submit"
+              disabled={status === "loading"}
+              className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-full bg-indigo-700 px-7 font-semibold text-white transition hover:bg-indigo-800 disabled:opacity-70"
             >
-              Get early access
-              <ArrowRight
-                size={17}
-                className="transition-transform group-hover:translate-x-1"
-              />
-            </a>
-          </div>
-        </div>
+              {status === "loading" ? (
+                <LoaderCircle size={18} className="animate-spin" />
+              ) : (
+                "Join waitlist"
+              )}
+            </button>
+          </form>
+        )}
+
+        {status === "error" && (
+          <p className="mt-3 text-sm text-indigo-100">
+            Something went wrong. Please try again.
+          </p>
+        )}
       </div>
     </section>
   );
