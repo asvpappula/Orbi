@@ -20,6 +20,8 @@ export async function runMigrations(supabase: SupabaseClient) {
     supabase.from("user_style_profiles").select("id").limit(0),
     supabase.from("slack_items").select("id").limit(0),
     supabase.from("github_items").select("id").limit(0),
+    supabase.from("custom_connectors").select("id").limit(0),
+    supabase.from("custom_items").select("id").limit(0),
   ]);
 
   const errors = checks.flatMap(({ error }) => (error ? [error.message] : []));
