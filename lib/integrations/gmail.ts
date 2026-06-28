@@ -291,3 +291,45 @@ export async function syncCanvasFromEmails(userId: string) {
   if (upsertError) throw new Error(upsertError.message);
   return { synced: rows.length };
 }
+
+function parseEdSubject(subject: string) {
+  const bracket = subject.match(/^\s*\[([^\]]+)\]\s*/);
+  const courseName = bracket?.[1]?.trim() || "Ed Discussion";
+  const title = (bracket ? subject.slice(bracket[0].length) : subject).trim();
+  return { courseName, title: title || subject.trim() || "Ed discussion post" };
+}
+
+export async function syncEdFromEmails(userId: string) {
+  const { supabase } = await assertUserId(userId);
+  const { data: emails, error } = await supabase
+    .from("gmail_items")
+    .select("gmail_id, subject, body")
+    .eq("user_id", userId)
+    .or("from_email.ilike.%edstem.org%,subject.ilike.%[Ed]%")
+    .order("timestamp", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  if (!emails?.length) return { synced: 0 };
+
+  const fetchedAt = new Date().toISOString();
+  const rows = emails.map((email) => {
+    const parsed = parseEdSubject(email.subject ?? "Ed discussion post");
+    return {
+      user_id: userId,
+      canvas_id: `ed:${email.gmail_id}`,
+      type: "discussion",
+      title: parsed.title,
+      course_name: parsed.courseName,
+      due_date: null,
+      description: email.body ?? "",
+      status: "unread",
+      fetched_at: fetchedAt,
+    };
+  });
+
+  const { error: upsertError } = await supabase.from("canvas_items").upsert(rows, {
+    onConflict: "user_id,canvas_id",
+  });
+  if (upsertError) throw new Error(upsertError.message);
+  return { synced: rows.length };
+}

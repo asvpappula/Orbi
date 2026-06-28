@@ -4,8 +4,8 @@ type BadgeTone = "due" | "unread" | "new" | "soon";
 
 export type UnifiedFeedItem = {
   id: string;
-  itemType: "canvas" | "gmail" | "slack" | "github";
-  app: "canvas" | "gmail" | "slack" | "github";
+  itemType: "canvas" | "gmail" | "slack" | "github" | "custom";
+  app: "canvas" | "gmail" | "slack" | "github" | "custom";
   title: string;
   preview: string;
   time: string;
@@ -19,7 +19,7 @@ export type UnifiedFeedItem = {
     sourceCount?: number;
     due?: { label: string; tone: BadgeTone };
     detail?: {
-      app: "canvas" | "gmail" | "slack" | "github";
+      app: "canvas" | "gmail" | "slack" | "github" | "custom";
       heading: string;
       meta: { label: string; value: string }[];
       body: string;
@@ -82,6 +82,7 @@ export async function getUnifiedFeed(userId: string) {
     { data: gmail, error: gmailError },
     { data: slack, error: slackError },
     { data: github, error: githubError },
+    { data: custom, error: customError },
   ] = await Promise.all([
       supabase
         .from("canvas_items")
@@ -107,12 +108,19 @@ export async function getUnifiedFeed(userId: string) {
         .eq("user_id", userId)
         .order("timestamp", { ascending: false })
         .limit(100),
+      supabase
+        .from("custom_items")
+        .select("*")
+        .eq("user_id", userId)
+        .order("timestamp", { ascending: false, nullsFirst: false })
+        .limit(100),
     ]);
 
   if (canvasError) throw new Error(canvasError.message);
   if (gmailError) throw new Error(gmailError.message);
   if (slackError) throw new Error(slackError.message);
   if (githubError) throw new Error(githubError.message);
+  if (customError) throw new Error(customError.message);
 
   const canvasItems: UnifiedFeedItem[] = (canvas ?? []).map((item) => {
     const urgency = dueUrgency(item.due_date);
@@ -259,7 +267,43 @@ export async function getUnifiedFeed(userId: string) {
     };
   });
 
-  return [...canvasItems, ...gmailItems, ...slackItems, ...githubItems].sort((a, b) => {
+  const customItems: UnifiedFeedItem[] = (custom ?? []).map((item) => ({
+    id: `custom:${item.id}`,
+    itemType: "custom",
+    app: "custom",
+    title: `${item.source_name} · ${item.title || "Update"}`,
+    preview: (item.body ?? "").replace(/<[^>]*>/g, " ").slice(0, 240),
+    time: relativeTime(item.timestamp ?? item.fetched_at),
+    timestamp: item.timestamp,
+    urgency: 12,
+    badge: { label: item.source_name, tone: "new" },
+    context: {
+      eyebrow: `Custom · ${item.source_name}`,
+      title: item.title || item.source_name,
+      sourceCount: 1,
+      detail: {
+        app: "custom",
+        heading: item.source_name,
+        meta: [
+          { label: "Source", value: item.source_name },
+          {
+            label: "When",
+            value: relativeTime(item.timestamp ?? item.fetched_at),
+          },
+        ],
+        body: (item.body ?? "").replace(/<[^>]*>/g, " "),
+      },
+      aiReply: "",
+    },
+  }));
+
+  return [
+    ...canvasItems,
+    ...gmailItems,
+    ...slackItems,
+    ...githubItems,
+    ...customItems,
+  ].sort((a, b) => {
     if (b.urgency !== a.urgency) return b.urgency - a.urgency;
     const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
     const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;

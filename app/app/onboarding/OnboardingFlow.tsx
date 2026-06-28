@@ -11,6 +11,7 @@ import {
   TokenConnectModal,
   type TokenIntegration,
 } from "./TokenConnectModal";
+import { CustomConnectModal } from "./CustomConnectModal";
 
 const TOTAL_STEPS = 3;
 
@@ -34,6 +35,7 @@ export function OnboardingFlow({
   const [error, setError] = useState("");
   const [canvasModalOpen, setCanvasModalOpen] = useState(false);
   const [tokenModal, setTokenModal] = useState<TokenIntegration | null>(null);
+  const [customModalOpen, setCustomModalOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   function handleConnect(integration: Integration) {
@@ -48,8 +50,16 @@ export function OnboardingFlow({
       window.location.assign("/api/integrations/discord/connect");
       return;
     }
+    if (integration.id === "outlook") {
+      window.location.assign("/api/auth/microsoft");
+      return;
+    }
     if (integration.id === "slack" || integration.id === "github") {
       setTokenModal(integration.id);
+      return;
+    }
+    if (integration.id === "custom") {
+      setCustomModalOpen(true);
       return;
     }
     setError("");
@@ -128,6 +138,13 @@ export function OnboardingFlow({
         onClose={() => setTokenModal(null)}
         onConnected={(integration) =>
           setConnected((previous) => new Set(previous).add(integration))
+        }
+      />
+      <CustomConnectModal
+        open={customModalOpen}
+        onClose={() => setCustomModalOpen(false)}
+        onConnected={() =>
+          setConnected((previous) => new Set(previous).add("custom"))
         }
       />
     </main>

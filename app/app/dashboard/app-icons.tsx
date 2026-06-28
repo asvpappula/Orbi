@@ -1,6 +1,7 @@
 import type { AppKey } from "./data";
 import {
   CanvasIcon,
+  CustomIcon,
   DiscordIcon,
   GmailIcon,
   GoogleCalendarIcon,
@@ -18,4 +19,5 @@ export const APP_ICON: Record<AppKey, (props: { className?: string }) => JSX.Ele
   groupme: GroupMeIcon,
   slack: SlackIcon,
   github: GithubIcon,
+  custom: CustomIcon,
 };

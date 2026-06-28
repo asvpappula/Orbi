@@ -2,9 +2,11 @@ export type IntegrationId =
   | "canvas"
   | "gmail"
   | "google_calendar"
+  | "outlook"
   | "discord"
   | "slack"
   | "github"
+  | "custom"
   | "groupme"
   | "notion";
 
@@ -14,7 +16,7 @@ export type Integration = {
   /** What Orbi pulls in once this app is connected. */
   description: string;
   /** Which OAuth provider powers the real connect handshake. */
-  provider?: "google" | "canvas" | "discord" | "groupme" | "token";
+  provider?: "google" | "microsoft" | "canvas" | "discord" | "groupme" | "token";
   /**
    * OAuth scopes requested during the real provider flow. Stored in the short
    * form the product spec uses; the full Google scope URLs are
@@ -52,6 +54,14 @@ export const INTEGRATIONS: Integration[] = [
     accent: "bg-white ring-1 ring-slate-200",
   },
   {
+    id: "outlook",
+    name: "Outlook",
+    description: "Outlook and Microsoft 365 mail and calendar",
+    provider: "microsoft",
+    scopes: ["Mail.Read", "Calendars.Read"],
+    accent: "bg-white ring-1 ring-slate-200",
+  },
+  {
     id: "discord",
     name: "Discord",
     description: "Server pings and class group chats",
@@ -71,6 +81,12 @@ export const INTEGRATIONS: Integration[] = [
     description: "Review requests and unread repository notifications",
     provider: "token",
     accent: "bg-slate-950",
+  },
+  {
+    id: "custom",
+    name: "Custom Source",
+    description: "Any iCal, RSS, or JSON feed",
+    accent: "bg-indigo-500",
   },
   {
     id: "groupme",

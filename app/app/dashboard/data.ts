@@ -5,7 +5,8 @@ export type AppKey =
   | "groupme"
   | "calendar"
   | "slack"
-  | "github";
+  | "github"
+  | "custom";
 
 export const APP_META: Record<AppKey, { label: string; tile: string }> = {
   canvas: { label: "Canvas", tile: "bg-[#d5273e]" },
@@ -15,6 +16,7 @@ export const APP_META: Record<AppKey, { label: string; tile: string }> = {
   calendar: { label: "Calendar", tile: "bg-white ring-1 ring-slate-200" },
   slack: { label: "Slack", tile: "bg-white ring-1 ring-slate-200" },
   github: { label: "GitHub", tile: "bg-slate-950 text-white" },
+  custom: { label: "Custom", tile: "bg-indigo-500 text-white" },
 };
 
 export type BadgeTone = "due" | "unread" | "new" | "soon";
@@ -55,7 +57,7 @@ export type ContextData = {
 
 export type FeedItem = {
   id: string;
-  itemType?: "canvas" | "gmail" | "slack" | "github";
+  itemType?: "canvas" | "gmail" | "slack" | "github" | "custom";
   app: AppKey;
   title: string;
   preview: string;

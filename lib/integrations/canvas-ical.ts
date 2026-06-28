@@ -47,16 +47,16 @@ async function fetchIcal(value: string) {
   return text;
 }
 
-function unfoldIcal(text: string) {
+export function unfoldIcal(text: string) {
   return text.replace(/\r\n/g, "\n").replace(/\n[ \t]/g, "");
 }
 
-function property(block: string, name: string) {
+export function property(block: string, name: string) {
   const match = block.match(new RegExp(`^${name}(?:;[^:]*)?:(.*)$`, "im"));
   return match?.[1]?.trim() ?? "";
 }
 
-function unescapeIcal(value: string) {
+export function unescapeIcal(value: string) {
   return value
     .replace(/\\n/gi, "\n")
     .replace(/\\,/g, ",")
@@ -116,7 +116,7 @@ function zonedDate(parts: DateParts, timeZone: string) {
   return result;
 }
 
-function parseIcalDate(block: string) {
+export function parseIcalDate(block: string) {
   const line = block.match(/^DTSTART(?:;([^:]+))?:(\S+)$/im);
   if (!line?.[2]) return null;
   const parameters = line[1] ?? "";

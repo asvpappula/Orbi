@@ -10,7 +10,10 @@ import {
   fetchEmails,
   getSentEmails,
   syncCanvasFromEmails,
+  syncEdFromEmails,
 } from "@/lib/integrations/gmail";
+import { syncAllCustomConnectors } from "@/lib/integrations/custom";
+import { syncOutlook } from "@/lib/integrations/outlook";
 import { syncSlack } from "@/lib/integrations/slack";
 
 export const runtime = "nodejs";
@@ -46,6 +49,13 @@ export async function POST() {
           return syncCanvasFromEmails(user.id);
         },
       });
+      jobs.push({
+        name: "ed_emails",
+        run: async () => {
+          await gmailSync;
+          return syncEdFromEmails(user.id);
+        },
+      });
     }
     if (names.has("google_calendar")) {
       jobs.push({ name: "google_calendar", run: () => fetchEvents(user.id) });
@@ -56,6 +66,20 @@ export async function POST() {
     }
     if (names.has("github")) {
       jobs.push({ name: "github", run: () => syncGithub(user.id) });
+    }
+    if (names.has("outlook")) {
+      jobs.push({ name: "outlook", run: () => syncOutlook(user.id) });
+    }
+
+    const { count: customCount } = await supabase
+      .from("custom_connectors")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    if ((customCount ?? 0) > 0) {
+      jobs.push({
+        name: "custom",
+        run: () => syncAllCustomConnectors(user.id),
+      });
     }
 
     const settled = await Promise.allSettled(jobs.map(({ run }) => run()));

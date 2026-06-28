@@ -128,6 +128,37 @@ export function NotionIcon({ className = "" }: IconProps) {
   );
 }
 
+/** Outlook / Microsoft 365 — blue tile with the white "O". */
+export function OutlookIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path d="M13 7h7.2a.8.8 0 0 1 .8.8v8.4a.8.8 0 0 1-.8.8H13V7Z" fill="#0F6CBD" opacity="0.18" />
+      <path d="M21 9.1 15.8 12 21 14.9V9.1Z" fill="#0F6CBD" opacity="0.4" />
+      <rect x="2.5" y="4.5" width="11" height="15" rx="2.4" fill="#0F6CBD" />
+      <ellipse cx="8" cy="12" rx="3.3" ry="3.9" fill="none" stroke="#fff" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
+/** Custom source — a generic globe for any iCal / RSS / JSON feed. */
+export function CustomIcon({ className = "" }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      aria-hidden="true"
+      fill="none"
+      stroke="#fff"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    >
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17" />
+      <path d="M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17" />
+    </svg>
+  );
+}
+
 export const INTEGRATION_ICONS: Record<
   IntegrationId,
   (props: IconProps) => JSX.Element
@@ -135,6 +166,8 @@ export const INTEGRATION_ICONS: Record<
   canvas: CanvasIcon,
   gmail: GmailIcon,
   google_calendar: GoogleCalendarIcon,
+  outlook: OutlookIcon,
+  custom: CustomIcon,
   discord: DiscordIcon,
   slack: SlackIcon,
   github: GithubIcon,
