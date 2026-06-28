@@ -4,8 +4,8 @@ type BadgeTone = "due" | "unread" | "new" | "soon";
 
 export type UnifiedFeedItem = {
   id: string;
-  itemType: "canvas" | "gmail";
-  app: "canvas" | "gmail";
+  itemType: "canvas" | "gmail" | "slack" | "github";
+  app: "canvas" | "gmail" | "slack" | "github";
   title: string;
   preview: string;
   time: string;
@@ -19,7 +19,7 @@ export type UnifiedFeedItem = {
     sourceCount?: number;
     due?: { label: string; tone: BadgeTone };
     detail?: {
-      app: "canvas" | "gmail";
+      app: "canvas" | "gmail" | "slack" | "github";
       heading: string;
       meta: { label: string; value: string }[];
       body: string;
@@ -77,8 +77,12 @@ function dueLabel(value: string | null) {
 
 export async function getUnifiedFeed(userId: string) {
   const { supabase } = await assertUserId(userId);
-  const [{ data: canvas, error: canvasError }, { data: gmail, error: gmailError }] =
-    await Promise.all([
+  const [
+    { data: canvas, error: canvasError },
+    { data: gmail, error: gmailError },
+    { data: slack, error: slackError },
+    { data: github, error: githubError },
+  ] = await Promise.all([
       supabase
         .from("canvas_items")
         .select("*")
@@ -91,10 +95,24 @@ export async function getUnifiedFeed(userId: string) {
         .eq("user_id", userId)
         .order("timestamp", { ascending: false })
         .limit(100),
+      supabase
+        .from("slack_items")
+        .select("*")
+        .eq("user_id", userId)
+        .order("timestamp", { ascending: false })
+        .limit(100),
+      supabase
+        .from("github_items")
+        .select("*")
+        .eq("user_id", userId)
+        .order("timestamp", { ascending: false })
+        .limit(100),
     ]);
 
   if (canvasError) throw new Error(canvasError.message);
   if (gmailError) throw new Error(gmailError.message);
+  if (slackError) throw new Error(slackError.message);
+  if (githubError) throw new Error(githubError.message);
 
   const canvasItems: UnifiedFeedItem[] = (canvas ?? []).map((item) => {
     const urgency = dueUrgency(item.due_date);
@@ -129,7 +147,20 @@ export async function getUnifiedFeed(userId: string) {
     };
   });
 
-  const gmailItems: UnifiedFeedItem[] = (gmail ?? []).map((item) => ({
+  const excludedGmailLabels = new Set([
+    "CATEGORY_PROMOTIONS",
+    "CATEGORY_SOCIAL",
+    "CATEGORY_UPDATES",
+    "CATEGORY_FORUMS",
+  ]);
+  const importantGmail = (gmail ?? []).filter(
+    (item) =>
+      !(item.labels ?? []).some((label: string) =>
+        excludedGmailLabels.has(label),
+      ),
+  );
+
+  const gmailItems: UnifiedFeedItem[] = importantGmail.map((item) => ({
     id: `gmail:${item.id}`,
     itemType: "gmail",
     app: "gmail",
@@ -168,7 +199,67 @@ export async function getUnifiedFeed(userId: string) {
     },
   }));
 
-  return [...canvasItems, ...gmailItems].sort((a, b) => {
+  const slackItems: UnifiedFeedItem[] = (slack ?? []).map((item) => ({
+    id: `slack:${item.id}`,
+    itemType: "slack",
+    app: "slack",
+    title: `${item.channel_name || "Slack"} · ${item.author_name || "Unknown"}`,
+    preview: item.content ?? "",
+    time: relativeTime(item.timestamp),
+    timestamp: item.timestamp,
+    urgency: 15,
+    badge: { label: "Slack", tone: "new" },
+    context: {
+      eyebrow: `Slack · ${item.channel_name || "Message"}`,
+      title: item.content?.slice(0, 80) || "Slack message",
+      sourceCount: 1,
+      detail: {
+        app: "slack",
+        heading: item.author_name || "Slack message",
+        meta: [
+          { label: "Channel", value: item.channel_name ?? "—" },
+          { label: "When", value: relativeTime(item.timestamp) },
+        ],
+        body: item.content ?? "",
+      },
+      aiReply: "",
+    },
+  }));
+
+  const githubItems: UnifiedFeedItem[] = (github ?? []).map((item) => {
+    const reviewRequested = item.type === "review_requested";
+    return {
+      id: `github:${item.id}`,
+      itemType: "github",
+      app: "github",
+      title: `${item.repo || "GitHub"} · ${item.title || "Notification"}`,
+      preview: [item.type, item.state].filter(Boolean).join(" · "),
+      time: relativeTime(item.timestamp),
+      timestamp: item.timestamp,
+      urgency: reviewRequested ? 25 : 15,
+      badge: reviewRequested
+        ? { label: "Review requested", tone: "unread" as const }
+        : { label: "GitHub", tone: "new" as const },
+      unread: true,
+      context: {
+        eyebrow: `GitHub · ${item.repo || "Notification"}`,
+        title: item.title || "GitHub notification",
+        sourceCount: 1,
+        detail: {
+          app: "github" as const,
+          heading: item.type || "GitHub notification",
+          meta: [
+            { label: "Repository", value: item.repo ?? "—" },
+            { label: "State", value: item.state ?? "unread" },
+          ],
+          body: item.url ?? item.title ?? "",
+        },
+        aiReply: "",
+      },
+    };
+  });
+
+  return [...canvasItems, ...gmailItems, ...slackItems, ...githubItems].sort((a, b) => {
     if (b.urgency !== a.urgency) return b.urgency - a.urgency;
     const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
     const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;

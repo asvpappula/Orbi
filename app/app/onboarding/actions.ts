@@ -33,7 +33,12 @@ export async function connectIntegration(
 
     if (!user) return { ok: false, error: "Not signed in" };
 
-    if (integrationName === "canvas" || integrationName === "discord") {
+    if (
+      integrationName === "canvas" ||
+      integrationName === "discord" ||
+      integrationName === "slack" ||
+      integrationName === "github"
+    ) {
       return {
         ok: false,
         error: `${integrationName} requires its dedicated connection flow`,

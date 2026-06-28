@@ -6,6 +6,8 @@ import {
   Bell,
   CalendarDays,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Home,
   Inbox,
@@ -34,8 +36,17 @@ import { AiReplyComposer } from "./AiReplyComposer";
 import { InboxView } from "./InboxView";
 import { SettingsView } from "./SettingsView";
 import { RepliesView } from "./RepliesView";
-import { CalendarView } from "./CalendarView";
 import { AssignmentsView } from "./AssignmentsView";
+import { CanvasConnectModal } from "@/app/app/onboarding/CanvasConnectModal";
+
+type CalendarEvent = {
+  id: string;
+  title: string;
+  start: string | null;
+  end: string | null;
+  location: string | null;
+  description: string | null;
+};
 
 type NavLabel =
   | "Home"
@@ -81,6 +92,10 @@ export function Dashboard({
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [activeNav, setActiveNav] = useState<NavLabel>(initialNav);
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState("");
+  const [canvasModalOpen, setCanvasModalOpen] = useState(false);
   const firstName = fullName.split(/\s+/)[0] || "Student";
 
   const loadFeed = useCallback(async () => {
@@ -127,6 +142,39 @@ export function Dashboard({
     return () => window.clearInterval(interval);
   }, [sync]);
 
+  useEffect(() => {
+    if (!["Inbox", "Assignments", "Replies"].includes(activeNav)) return;
+    void loadFeed().catch(console.error);
+  }, [activeNav, loadFeed]);
+
+  useEffect(() => {
+    if (activeNav !== "Calendar") return;
+    let cancelled = false;
+    setCalendarLoading(true);
+    setCalendarError("");
+    void fetch("/api/integrations/calendar/events", { cache: "no-store" })
+      .then(async (response) => {
+        const payload = (await response.json()) as {
+          events?: CalendarEvent[];
+          error?: string;
+        };
+        if (!response.ok) throw new Error(payload.error ?? "Could not load your calendar");
+        if (!cancelled) setCalendarEvents(payload.events ?? []);
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setCalendarEvents([]);
+          setCalendarError(error instanceof Error ? error.message : "Could not load your calendar");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCalendarLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeNav]);
+
   const selectItem = useCallback(async (id: string) => {
     setSelectedId(id);
     const item = feed.find((value) => value.id === id);
@@ -135,33 +183,28 @@ export function Dashboard({
       const response = await fetch("/api/ai/stitch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: item.id, itemType: item.itemType }),
+        body: JSON.stringify({
+          item: {
+            title: item.title,
+            body: item.preview,
+            course: item.context.eyebrow,
+            app: item.app,
+          },
+        }),
       });
       if (!response.ok || !response.body) return;
       const text = await response.text();
       const lines = text.trim().split("\n");
       const result = lines
-        .map((line) => JSON.parse(line) as { type: string; data?: { sourceCount: number; relatedEmails: Array<Record<string, unknown>> } })
+        .map((line) => JSON.parse(line) as { type: string; data?: string })
         .find((line) => line.type === "result")?.data;
       if (!result) return;
       setFeed((current) =>
         current.map((value) => {
           if (value.id !== id) return value;
-          const related = result.relatedEmails[0];
-          const thread = related
-            ? {
-                app: "gmail" as const,
-                from: String(related.from_name || related.from_email || "Unknown"),
-                fromEmail: String(related.from_email || ""),
-                subject: String(related.subject || "(no subject)"),
-                preview: String(related.preview || related.body || ""),
-                threadId: String(related.thread_id || ""),
-                messageId: String(related.gmail_id || ""),
-              }
-            : value.context.thread;
           return {
             ...value,
-            context: { ...value.context, sourceCount: result.sourceCount, thread },
+            context: { ...value.context, contextSummary: result },
           };
         }),
       );
@@ -179,7 +222,12 @@ export function Dashboard({
       case "Calendar":
         return feed;
       case "Replies":
-        return feed.filter((item) => item.unread === true);
+        return feed.filter(
+          (item) =>
+            item.app === "gmail" &&
+            item.unread === true &&
+            item.context.aiReply.trim().length > 0,
+        );
       case "Settings":
         return [];
       default:
@@ -217,13 +265,20 @@ export function Dashboard({
         <TopBar fullName={fullName} lastSynced={lastSynced} />
         <div className="flex min-h-0 flex-1">
           {activeNav === "Inbox" ? (
-            <InboxView />
+            <InboxView items={filteredFeed} />
           ) : activeNav === "Assignments" ? (
-            <AssignmentsView />
+            <AssignmentsView
+              items={filteredFeed}
+              onConnectCanvas={() => setCanvasModalOpen(true)}
+            />
           ) : activeNav === "Calendar" ? (
-            <CalendarView />
+            <CalendarView
+              events={calendarEvents}
+              loading={calendarLoading}
+              error={calendarError}
+            />
           ) : activeNav === "Replies" ? (
-            <RepliesView />
+            <RepliesView items={filteredFeed} />
           ) : activeNav === "Settings" ? (
             <SettingsView />
           ) : (
@@ -272,7 +327,396 @@ export function Dashboard({
           initialReply={context.aiReply}
         />
       )}
+
+      <CanvasConnectModal
+        open={canvasModalOpen}
+        onClose={() => setCanvasModalOpen(false)}
+        onConnected={() => void sync().catch(console.error)}
+      />
     </div>
+  );
+}
+
+const CALENDAR_START_HOUR = 7;
+const CALENDAR_END_HOUR = 22;
+const CALENDAR_HOUR_HEIGHT = 64;
+const CALENDAR_HOURS = Array.from(
+  { length: CALENDAR_END_HOUR - CALENDAR_START_HOUR + 1 },
+  (_, index) => CALENDAR_START_HOUR + index,
+);
+
+type CalendarMode = "Week" | "Month";
+type CalendarEventKind = "regular" | "deadline" | "group";
+
+const CALENDAR_EVENT_STYLES: Record<CalendarEventKind, string> = {
+  regular: "border-blue-400 bg-blue-100 text-blue-800",
+  deadline: "border-rose-400 bg-rose-100 text-rose-800",
+  group: "border-emerald-400 bg-emerald-100 text-emerald-800",
+};
+
+function calendarDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function calendarEventDateKey(value: string | null) {
+  if (!value) return "";
+  if (!value.includes("T")) return value.slice(0, 10);
+  return calendarDateKey(new Date(value));
+}
+
+function calendarWeekStart(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const day = date.getDay();
+  date.setDate(date.getDate() + (day === 0 ? -6 : 1 - day));
+  return date;
+}
+
+function addCalendarDays(value: Date, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function calendarEventKind(event: CalendarEvent): CalendarEventKind {
+  const text = `${event.title} ${event.description ?? ""}`.toLowerCase();
+  if (/\b(due|deadline|submit|assignment|exam|quiz)\b/.test(text)) {
+    return "deadline";
+  }
+  if (/\b(group|social|study|club|team|party|meetup|hangout)\b/.test(text)) {
+    return "group";
+  }
+  return "regular";
+}
+
+function calendarTime(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(value);
+}
+
+function calendarHourLabel(hour: number) {
+  if (hour === 0) return "12 AM";
+  if (hour === 12) return "12 PM";
+  return `${hour > 12 ? hour - 12 : hour} ${hour >= 12 ? "PM" : "AM"}`;
+}
+
+function CalendarView({
+  events,
+  loading,
+  error,
+}: {
+  events: CalendarEvent[];
+  loading: boolean;
+  error: string;
+}) {
+  const [mode, setMode] = useState<CalendarMode>("Week");
+  const [weekStart, setWeekStart] = useState(() => calendarWeekStart(new Date()));
+  const todayKey = calendarDateKey(new Date());
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => addCalendarDays(weekStart, index)),
+    [weekStart],
+  );
+  const monthAnchor = addCalendarDays(weekStart, 3);
+
+  const eventsByDay = useMemo(() => {
+    const result = new Map<string, CalendarEvent[]>();
+    for (const event of events) {
+      const key = calendarEventDateKey(event.start);
+      if (!key) continue;
+      result.set(key, [...(result.get(key) ?? []), event]);
+    }
+    return result;
+  }, [events]);
+
+  return (
+    <main className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-5 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <h1 className="mr-1 text-2xl font-semibold tracking-[-0.04em]">
+            {new Intl.DateTimeFormat("en-US", {
+              month: "long",
+              year: "numeric",
+            }).format(monthAnchor)}
+          </h1>
+          <button
+            type="button"
+            aria-label="Previous week"
+            onClick={() => setWeekStart((current) => addCalendarDays(current, -7))}
+            className="grid size-8 place-items-center rounded-full border border-white/80 bg-white/70 text-slate-500 shadow-sm transition hover:text-primary"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            type="button"
+            aria-label="Next week"
+            onClick={() => setWeekStart((current) => addCalendarDays(current, 7))}
+            className="grid size-8 place-items-center rounded-full border border-white/80 bg-white/70 text-slate-500 shadow-sm transition hover:text-primary"
+          >
+            <ChevronRight size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setWeekStart(calendarWeekStart(new Date()))}
+            className="rounded-full border border-primary/15 bg-white/70 px-3.5 py-1.5 text-xs font-semibold text-primary shadow-sm"
+          >
+            Today
+          </button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="hidden items-center gap-3 text-[11px] text-slate-500 lg:flex">
+            <CalendarLegend color="bg-blue-500" label="Event" />
+            <CalendarLegend color="bg-rose-500" label="Deadline" />
+            <CalendarLegend color="bg-emerald-500" label="Group" />
+          </div>
+          <div className="flex rounded-full bg-white/55 p-1">
+            {(["Week", "Month"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setMode(option)}
+                className={cn(
+                  "rounded-full px-3.5 py-1.5 text-xs font-semibold transition",
+                  mode === option
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-slate-400 hover:text-slate-600",
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+          {error}
+        </div>
+      )}
+
+      <div className="mt-4 min-h-0 flex-1 overflow-auto rounded-2xl border border-white/70 bg-white/55 backdrop-blur-xl">
+        {loading ? (
+          <div className="grid h-full min-h-80 place-items-center text-sm text-slate-400">
+            Loading your calendar…
+          </div>
+        ) : mode === "Week" ? (
+          <CalendarWeekGrid
+            eventsByDay={eventsByDay}
+            todayKey={todayKey}
+            weekDays={weekDays}
+          />
+        ) : (
+          <CalendarMonthGrid
+            anchor={monthAnchor}
+            eventsByDay={eventsByDay}
+            todayKey={todayKey}
+          />
+        )}
+      </div>
+    </main>
+  );
+}
+
+function CalendarWeekGrid({
+  eventsByDay,
+  todayKey,
+  weekDays,
+}: {
+  eventsByDay: Map<string, CalendarEvent[]>;
+  todayKey: string;
+  weekDays: Date[];
+}) {
+  const timedHeight = (CALENDAR_END_HOUR - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT;
+
+  return (
+    <div className="min-w-[900px]">
+      <div
+        className="sticky top-0 z-20 grid border-b border-slate-100 bg-white/90 backdrop-blur-xl"
+        style={{ gridTemplateColumns: "64px repeat(7, minmax(112px, 1fr))" }}
+      >
+        <div />
+        {weekDays.map((day) => {
+          const key = calendarDateKey(day);
+          return (
+            <div key={key} className="border-l border-slate-100 py-2 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                {new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(day)}
+              </p>
+              <p
+                className={cn(
+                  "mx-auto mt-0.5 grid size-7 place-items-center rounded-full text-sm font-semibold",
+                  key === todayKey ? "bg-primary text-white" : "text-slate-700",
+                )}
+              >
+                {day.getDate()}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        className="grid border-b border-slate-100 bg-white/45"
+        style={{ gridTemplateColumns: "64px repeat(7, minmax(112px, 1fr))" }}
+      >
+        <div className="flex items-center justify-end px-2 py-2 text-[10px] font-semibold text-slate-400">
+          All-day
+        </div>
+        {weekDays.map((day) => {
+          const key = calendarDateKey(day);
+          const allDayEvents = (eventsByDay.get(key) ?? []).filter(
+            (event) => event.start && !event.start.includes("T"),
+          );
+          return (
+            <div key={key} className="min-h-11 space-y-1 border-l border-slate-100 p-1.5">
+              {allDayEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className={cn(
+                    "truncate rounded-md border-l-2 px-2 py-1 text-[10px] font-semibold",
+                    CALENDAR_EVENT_STYLES[calendarEventKind(event)],
+                  )}
+                  title={event.title}
+                >
+                  {event.title}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        className="grid"
+        style={{ gridTemplateColumns: "64px repeat(7, minmax(112px, 1fr))" }}
+      >
+        <div className="relative" style={{ height: timedHeight }}>
+          {CALENDAR_HOURS.map((hour, index) => (
+            <span
+              key={hour}
+              className="absolute right-2 -translate-y-1/2 text-[10px] text-slate-400"
+              style={{ top: index * CALENDAR_HOUR_HEIGHT }}
+            >
+              {calendarHourLabel(hour)}
+            </span>
+          ))}
+        </div>
+
+        {weekDays.map((day) => {
+          const key = calendarDateKey(day);
+          const timedEvents = (eventsByDay.get(key) ?? []).filter(
+            (event) => event.start?.includes("T"),
+          );
+          return (
+            <div
+              key={key}
+              className={cn(
+                "relative border-l border-slate-100",
+                key === todayKey && "bg-primary/[0.025]",
+              )}
+              style={{ height: timedHeight }}
+            >
+              {CALENDAR_HOURS.slice(0, -1).map((hour) => (
+                <div
+                  key={hour}
+                  className="border-b border-slate-100/80"
+                  style={{ height: CALENDAR_HOUR_HEIGHT }}
+                />
+              ))}
+              {timedEvents.map((event) => {
+                const start = new Date(event.start as string);
+                const rawEnd = event.end ? new Date(event.end) : new Date(start.getTime() + 60 * 60 * 1000);
+                const startHour = start.getHours() + start.getMinutes() / 60;
+                const endHour = rawEnd.getHours() + rawEnd.getMinutes() / 60;
+                if (endHour <= CALENDAR_START_HOUR || startHour >= CALENDAR_END_HOUR) return null;
+                const visibleStart = Math.max(startHour, CALENDAR_START_HOUR);
+                const visibleEnd = Math.min(Math.max(endHour, startHour + 0.5), CALENDAR_END_HOUR);
+                const top = (visibleStart - CALENDAR_START_HOUR) * CALENDAR_HOUR_HEIGHT;
+                const height = Math.max(28, (visibleEnd - visibleStart) * CALENDAR_HOUR_HEIGHT - 3);
+                return (
+                  <div
+                    key={event.id}
+                    title={`${event.title} · ${calendarTime(start)}`}
+                    className={cn(
+                      "absolute inset-x-1.5 z-10 overflow-hidden rounded-lg border-l-[3px] px-2 py-1.5 text-[10px] leading-tight shadow-sm",
+                      CALENDAR_EVENT_STYLES[calendarEventKind(event)],
+                    )}
+                    style={{ top, height }}
+                  >
+                    <p className="truncate font-bold">{event.title}</p>
+                    <p className="mt-0.5 truncate opacity-70">
+                      {calendarTime(start)}–{calendarTime(rawEnd)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CalendarMonthGrid({
+  anchor,
+  eventsByDay,
+  todayKey,
+}: {
+  anchor: Date;
+  eventsByDay: Map<string, CalendarEvent[]>;
+  todayKey: string;
+}) {
+  const firstDay = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const lastDay = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+  const leadingDays = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1;
+  const cells: Array<Date | null> = [
+    ...Array.from({ length: leadingDays }, () => null),
+    ...Array.from(
+      { length: lastDay.getDate() },
+      (_, index) => new Date(anchor.getFullYear(), anchor.getMonth(), index + 1),
+    ),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <div className="min-w-[700px] p-4">
+      <div className="grid grid-cols-7 border-b border-slate-100 pb-2 text-center text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => <span key={day}>{day}</span>)}
+      </div>
+      <div className="grid grid-cols-7">
+        {cells.map((day, index) => {
+          if (!day) return <div key={`empty-${index}`} className="min-h-24 border-b border-r border-slate-100/80" />;
+          const key = calendarDateKey(day);
+          const dayEvents = eventsByDay.get(key) ?? [];
+          return (
+            <div key={key} className="min-h-24 border-b border-r border-slate-100/80 p-2">
+              <span className={cn("grid size-7 place-items-center rounded-full text-xs font-semibold", key === todayKey ? "bg-primary text-white" : "text-slate-600")}>{day.getDate()}</span>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {dayEvents.slice(0, 5).map((event) => (
+                  <span key={event.id} title={event.title} className={cn("size-2 rounded-full", calendarEventKind(event) === "deadline" ? "bg-rose-500" : calendarEventKind(event) === "group" ? "bg-emerald-500" : "bg-blue-500")} />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CalendarLegend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className={cn("size-2 rounded-sm", color)} />
+      {label}
+    </span>
   );
 }
 
@@ -288,15 +732,17 @@ function Sidebar({
   onNavSelect: (label: NavLabel) => void;
 }) {
   const initials = fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
-  const candidates: { app: AppKey; integration: string; status: BadgeStatus }[] = [
-    { app: "canvas", integration: "canvas", status: "connected" },
-    { app: "gmail", integration: "gmail", status: "connected" },
-    { app: "discord", integration: "discord", status: "connected" },
-    { app: "groupme", integration: "groupme", status: "connected" },
-    { app: "calendar", integration: "google_calendar", status: "connected" },
+  const candidates: { app: AppKey; integrations: string[]; status: BadgeStatus }[] = [
+    { app: "canvas", integrations: ["canvas", "canvas_ical"], status: "connected" },
+    { app: "gmail", integrations: ["gmail"], status: "connected" },
+    { app: "discord", integrations: ["discord"], status: "connected" },
+    { app: "slack", integrations: ["slack"], status: "connected" },
+    { app: "github", integrations: ["github"], status: "connected" },
+    { app: "groupme", integrations: ["groupme"], status: "connected" },
+    { app: "calendar", integrations: ["google_calendar"], status: "connected" },
   ];
-  const connected = candidates.filter(({ integration }) =>
-    connectedApps.includes(integration),
+  const connected = candidates.filter(({ integrations }) =>
+    integrations.some((integration) => connectedApps.includes(integration)),
   );
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-white/60 bg-white/45 px-4 py-5 backdrop-blur-xl md:flex">

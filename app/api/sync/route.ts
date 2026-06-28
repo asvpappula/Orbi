@@ -1,15 +1,28 @@
 import { apiError } from "@/lib/api";
 import { getAuthenticatedContext } from "@/lib/auth/server";
+import { runMigrations } from "@/lib/db/migrate";
 import { fetchEvents } from "@/lib/integrations/calendar";
 import { syncCanvas } from "@/lib/integrations/canvas";
+import { syncCanvasIcal } from "@/lib/integrations/canvas-ical";
 import { fetchMessages } from "@/lib/integrations/discord";
-import { fetchEmails, getSentEmails } from "@/lib/integrations/gmail";
+import { syncGithub } from "@/lib/integrations/github";
+import {
+  fetchEmails,
+  getSentEmails,
+  syncCanvasFromEmails,
+} from "@/lib/integrations/gmail";
+import { syncSlack } from "@/lib/integrations/slack";
 
 export const runtime = "nodejs";
 
 export async function POST() {
   try {
     const { user, supabase } = await getAuthenticatedContext();
+    try {
+      await runMigrations(supabase);
+    } catch (error) {
+      console.warn("Supabase migration readiness check failed", error);
+    }
     const { data, error } = await supabase
       .from("user_integrations")
       .select("integration_name, access_token")
@@ -19,14 +32,31 @@ export async function POST() {
     const names = new Set((data ?? []).map((row) => row.integration_name));
     const jobs: Array<{ name: string; run: () => Promise<unknown> }> = [];
     if (names.has("canvas")) jobs.push({ name: "canvas", run: () => syncCanvas(user.id) });
+    if (names.has("canvas_ical")) {
+      jobs.push({ name: "canvas_ical", run: () => syncCanvasIcal(user.id) });
+    }
     if (names.has("gmail")) {
-      jobs.push({ name: "gmail", run: () => fetchEmails(user.id) });
-      jobs.push({ name: "gmail_sent", run: () => getSentEmails(user.id, 50) });
+      const gmailSync = fetchEmails(user.id);
+      jobs.push({ name: "gmail", run: () => gmailSync });
+      jobs.push({ name: "gmail_sent", run: () => getSentEmails(user.id, 20) });
+      jobs.push({
+        name: "canvas_emails",
+        run: async () => {
+          await gmailSync;
+          return syncCanvasFromEmails(user.id);
+        },
+      });
     }
     if (names.has("google_calendar")) {
       jobs.push({ name: "google_calendar", run: () => fetchEvents(user.id) });
     }
     if (names.has("discord")) jobs.push({ name: "discord", run: () => fetchMessages(user.id) });
+    if (names.has("slack")) {
+      jobs.push({ name: "slack", run: () => syncSlack(user.id) });
+    }
+    if (names.has("github")) {
+      jobs.push({ name: "github", run: () => syncGithub(user.id) });
+    }
 
     const settled = await Promise.allSettled(jobs.map(({ run }) => run()));
     const integrations = settled.map((result, index) => ({

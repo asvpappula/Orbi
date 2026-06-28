@@ -73,6 +73,31 @@ export function DiscordIcon({ className = "" }: IconProps) {
   );
 }
 
+/** Slack — four-color hash mark. */
+export function SlackIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <rect x="5" y="2" width="4" height="9" rx="2" fill="#36C5F0" />
+      <rect x="2" y="5" width="9" height="4" rx="2" fill="#36C5F0" />
+      <rect x="15" y="5" width="4" height="9" rx="2" fill="#2EB67D" />
+      <rect x="13" y="2" width="9" height="4" rx="2" fill="#2EB67D" />
+      <rect x="15" y="13" width="4" height="9" rx="2" fill="#ECB22E" />
+      <rect x="13" y="15" width="9" height="4" rx="2" fill="#ECB22E" />
+      <rect x="5" y="13" width="4" height="9" rx="2" fill="#E01E5A" />
+      <rect x="2" y="15" width="9" height="4" rx="2" fill="#E01E5A" />
+    </svg>
+  );
+}
+
+/** GitHub — Octocat silhouette. */
+export function GithubIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true" fill="currentColor">
+      <path d="M12 2C6.477 2 2 6.59 2 12.253c0 4.53 2.865 8.372 6.839 9.728.5.095.682-.222.682-.494 0-.244-.009-.89-.014-1.746-2.782.62-3.369-1.374-3.369-1.374-.455-1.184-1.11-1.499-1.11-1.499-.908-.636.069-.623.069-.623 1.003.073 1.531 1.057 1.531 1.057.892 1.566 2.341 1.114 2.91.852.091-.663.349-1.114.635-1.37-2.221-.259-4.555-1.139-4.555-5.068 0-1.119.39-2.034 1.03-2.752-.103-.26-.446-1.302.098-2.714 0 0 .84-.276 2.75 1.051A9.34 9.34 0 0 1 12 6.982a9.35 9.35 0 0 1 2.504.345c1.909-1.327 2.748-1.051 2.748-1.051.545 1.412.202 2.454.099 2.714.64.718 1.029 1.633 1.029 2.752 0 3.939-2.338 4.806-4.566 5.06.359.317.679.944.679 1.903 0 1.374-.012 2.482-.012 2.82 0 .274.18.594.688.493C19.138 20.625 22 16.784 22 12.253 22 6.59 17.523 2 12 2Z" />
+    </svg>
+  );
+}
+
 /** GroupMe — a friendly speech bubble with a smiley. */
 export function GroupMeIcon({ className = "" }: IconProps) {
   return (
@@ -111,6 +136,8 @@ export const INTEGRATION_ICONS: Record<
   gmail: GmailIcon,
   google_calendar: GoogleCalendarIcon,
   discord: DiscordIcon,
+  slack: SlackIcon,
+  github: GithubIcon,
   groupme: GroupMeIcon,
   notion: NotionIcon,
 };

@@ -3,6 +3,8 @@ export type IntegrationId =
   | "gmail"
   | "google_calendar"
   | "discord"
+  | "slack"
+  | "github"
   | "groupme"
   | "notion";
 
@@ -12,7 +14,7 @@ export type Integration = {
   /** What Orbi pulls in once this app is connected. */
   description: string;
   /** Which OAuth provider powers the real connect handshake. */
-  provider?: "google" | "canvas" | "discord" | "groupme";
+  provider?: "google" | "canvas" | "discord" | "groupme" | "token";
   /**
    * OAuth scopes requested during the real provider flow. Stored in the short
    * form the product spec uses; the full Google scope URLs are
@@ -55,6 +57,20 @@ export const INTEGRATIONS: Integration[] = [
     description: "Server pings and class group chats",
     provider: "discord",
     accent: "bg-[#5865f2]",
+  },
+  {
+    id: "slack",
+    name: "Slack",
+    description: "Channels, direct messages, and project updates",
+    provider: "token",
+    accent: "bg-white ring-1 ring-slate-200",
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    description: "Review requests and unread repository notifications",
+    provider: "token",
+    accent: "bg-slate-950",
   },
   {
     id: "groupme",

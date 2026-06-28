@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => ({}))) as {
       maxResults?: number;
     };
-    const items = await fetchEmails(user.id, body.maxResults ?? 50);
+    const items = await fetchEmails(user.id, body.maxResults ?? 20);
     return NextResponse.json({ synced: items.length, items });
   } catch (error) {
     return apiError(error);

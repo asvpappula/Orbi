@@ -7,6 +7,10 @@ import { INTEGRATIONS, type Integration } from "./integrations";
 import { INTEGRATION_ICONS } from "./icons";
 import { completeOnboarding, connectIntegration } from "./actions";
 import { CanvasConnectModal } from "./CanvasConnectModal";
+import {
+  TokenConnectModal,
+  type TokenIntegration,
+} from "./TokenConnectModal";
 
 const TOTAL_STEPS = 3;
 
@@ -29,6 +33,7 @@ export function OnboardingFlow({
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [canvasModalOpen, setCanvasModalOpen] = useState(false);
+  const [tokenModal, setTokenModal] = useState<TokenIntegration | null>(null);
   const [, startTransition] = useTransition();
 
   function handleConnect(integration: Integration) {
@@ -41,6 +46,10 @@ export function OnboardingFlow({
 
     if (integration.id === "discord") {
       window.location.assign("/api/integrations/discord/connect");
+      return;
+    }
+    if (integration.id === "slack" || integration.id === "github") {
+      setTokenModal(integration.id);
       return;
     }
     setError("");
@@ -112,6 +121,13 @@ export function OnboardingFlow({
         onClose={() => setCanvasModalOpen(false)}
         onConnected={() =>
           setConnected((previous) => new Set(previous).add("canvas"))
+        }
+      />
+      <TokenConnectModal
+        integration={tokenModal}
+        onClose={() => setTokenModal(null)}
+        onConnected={(integration) =>
+          setConnected((previous) => new Set(previous).add(integration))
         }
       />
     </main>

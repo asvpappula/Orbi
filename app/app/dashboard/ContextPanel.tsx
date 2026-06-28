@@ -58,6 +58,12 @@ export function ContextPanel({
         </span>
       )}
 
+      {context.contextSummary && (
+        <p className="mt-4 rounded-xl border border-primary/10 bg-primary/[0.04] p-3 text-sm leading-relaxed text-slate-600">
+          {context.contextSummary}
+        </p>
+      )}
+
       {context.detail && DetailIcon && (
         <div className="mt-5 rounded-2xl border border-white/70 bg-white/70 p-4">
           <div className="flex items-center gap-2.5">

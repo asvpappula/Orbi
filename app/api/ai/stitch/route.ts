@@ -1,6 +1,9 @@
 import { apiError } from "@/lib/api";
 import { getAuthenticatedContext } from "@/lib/auth/server";
-import { stitchContext } from "@/lib/ai/contextStitch";
+import {
+  stitchContext,
+  type ContextFeedItem,
+} from "@/lib/ai/contextStitch";
 
 export const runtime = "nodejs";
 
@@ -8,11 +11,13 @@ export async function POST(request: Request) {
   try {
     const { user } = await getAuthenticatedContext();
     const body = (await request.json()) as {
-      itemId?: string;
-      itemType?: "canvas" | "gmail";
+      item?: ContextFeedItem;
     };
-    if (!body.itemId || !["canvas", "gmail"].includes(body.itemType ?? "")) {
-      return Response.json({ error: "Valid itemId and itemType are required" }, { status: 400 });
+    if (!body.item?.title || !body.item.app) {
+      return Response.json(
+        { error: "A feed item with title and app is required" },
+        { status: 400 },
+      );
     }
 
     const encoder = new TextEncoder();
@@ -22,7 +27,7 @@ export async function POST(request: Request) {
           encoder.encode(`${JSON.stringify({ type: "status", message: "Finding related context" })}\n`),
         );
         try {
-          const result = await stitchContext(user.id, body.itemId!, body.itemType!);
+          const result = await stitchContext(user.id, body.item!);
           controller.enqueue(
             encoder.encode(`${JSON.stringify({ type: "result", data: result })}\n`),
           );

@@ -26,7 +26,10 @@ export default async function OnboardingPage() {
     .select("integration_name")
     .eq("user_id", user.id);
 
-  const initialConnected = rows?.map((row) => row.integration_name) ?? [];
+  const initialConnected =
+    rows?.map((row) =>
+      row.integration_name === "canvas_ical" ? "canvas" : row.integration_name,
+    ) ?? [];
 
   return (
     <OnboardingFlow firstName={firstName} initialConnected={initialConnected} />

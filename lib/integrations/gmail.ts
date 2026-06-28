@@ -119,13 +119,24 @@ async function persistMessages(userId: string, messages: GmailMessage[]) {
   if (error) throw new Error(error.message);
 }
 
+function gmailDateFilter(days: number) {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
+    .replace(/-/g, "/");
+}
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 async function fetchInBatches(token: string, ids: string[], batchSize = 5) {
-  const messages = [];
+  const messages: GmailMessage[] = [];
   for (let i = 0; i < ids.length; i += batchSize) {
     const batch = ids.slice(i, i + batchSize);
     const results = await Promise.all(batch.map((id) => fetchMessage(token, id)));
     messages.push(...results);
-    if (i + batchSize < ids.length) await new Promise((r) => setTimeout(r, 200));
+    if (i + batchSize < ids.length) await delay(250);
   }
   return messages;
 }
@@ -133,10 +144,21 @@ async function fetchInBatches(token: string, ids: string[], batchSize = 5) {
 export async function fetchEmails(userId: string, maxResults = 20) {
   await assertUserId(userId);
   const token = await getGoogleAccessToken(userId, "gmail");
-  const limit = Math.min(Math.max(maxResults, 1), 50);
+  const limit = Math.min(Math.max(maxResults, 1), 20);
+  const after = gmailDateFilter(30);
+  const query = [
+    "-in:spam",
+    "-in:trash",
+    "-in:promotions",
+    "-category:promotions",
+    "-category:social",
+    "-category:updates",
+    "-category:forums",
+    `after:${after}`,
+  ].join(" ");
   const list = await gmailRequest<{ messages?: { id: string }[] }>(
     token,
-    `/messages?maxResults=${limit}&q=${encodeURIComponent("-in:spam -in:trash")}`,
+    `/messages?maxResults=${limit}&q=${encodeURIComponent(query)}`,
   );
   const ids = (list.messages ?? []).map(({ id }) => id);
   const messages = await fetchInBatches(token, ids);
@@ -191,17 +213,81 @@ export async function sendEmail(
   });
 }
 
-export async function getSentEmails(userId: string, limit = 50) {
+export async function getSentEmails(userId: string, limit = 20) {
   await assertUserId(userId);
   const token = await getGoogleAccessToken(userId, "gmail");
-  const maxResults = Math.min(Math.max(limit, 1), 100);
+  const maxResults = Math.min(Math.max(limit, 1), 20);
+  const after = gmailDateFilter(30);
   const list = await gmailRequest<{ messages?: { id: string }[] }>(
     token,
-    `/messages?maxResults=${maxResults}&labelIds=SENT`,
+    `/messages?maxResults=${maxResults}&labelIds=SENT&q=${encodeURIComponent(`after:${after}`)}`,
   );
-  const messages = await Promise.all(
-    (list.messages ?? []).map(({ id }) => fetchMessage(token, id)),
-  );
+  const ids = (list.messages ?? []).map(({ id }) => id);
+  const messages = await fetchInBatches(token, ids);
   await persistMessages(userId, messages);
   return messages.map((message) => toRow(userId, message));
+}
+
+function parseCanvasSubject(subject: string) {
+  const bracket = subject.match(/^\s*\[([^\]]+)\]\s*/);
+  const courseName = bracket?.[1]?.trim() || "Canvas";
+  let title = bracket ? subject.slice(bracket[0].length) : subject;
+  const submission = title.match(
+    /^Your submission for\s+(.+?)\s+has been received\.?$/i,
+  );
+  if (submission?.[1]) title = submission[1];
+  title = title
+    .replace(/^(?:Reminder|New Assignment):\s*/i, "")
+    .replace(/\s+due\b.*$/i, "")
+    .trim();
+  return { title: title || subject.trim() || "Canvas assignment", courseName };
+}
+
+function parseCanvasDueDate(body: string) {
+  const match = body.match(
+    /due\s+(?:by|on|date(?:\s+is)?\s*:?)[\s:]*([^\n\r.]{4,100})/i,
+  );
+  if (!match?.[1]) return null;
+  const candidate = match[1]
+    .replace(/\s+at\s+/i, " ")
+    .replace(/\s+(?:view|open|submit|click)\b.*$/i, "")
+    .trim();
+  const timestamp = Date.parse(candidate);
+  return Number.isNaN(timestamp) ? null : new Date(timestamp).toISOString();
+}
+
+export async function syncCanvasFromEmails(userId: string) {
+  const { supabase } = await assertUserId(userId);
+  const { data: emails, error } = await supabase
+    .from("gmail_items")
+    .select("gmail_id, subject, body")
+    .eq("user_id", userId)
+    .ilike("from_email", "%instructure.com%")
+    .order("timestamp", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  if (!emails?.length) return { synced: 0 };
+
+  const fetchedAt = new Date().toISOString();
+  const rows = emails.map((email) => {
+    const subject = email.subject ?? "Canvas assignment";
+    const parsed = parseCanvasSubject(subject);
+    return {
+      user_id: userId,
+      canvas_id: `email:${email.gmail_id}`,
+      type: "assignment",
+      title: parsed.title,
+      course_name: parsed.courseName,
+      due_date: parseCanvasDueDate(email.body ?? ""),
+      description: email.body ?? "",
+      status: "todo",
+      fetched_at: fetchedAt,
+    };
+  });
+
+  const { error: upsertError } = await supabase.from("canvas_items").upsert(rows, {
+    onConflict: "user_id,canvas_id",
+  });
+  if (upsertError) throw new Error(upsertError.message);
+  return { synced: rows.length };
 }

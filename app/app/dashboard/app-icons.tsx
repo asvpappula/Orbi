@@ -5,6 +5,8 @@ import {
   GmailIcon,
   GoogleCalendarIcon,
   GroupMeIcon,
+  GithubIcon,
+  SlackIcon,
 } from "@/app/app/onboarding/icons";
 
 /** Brand icon per app, reused from the onboarding integration icons. */
@@ -14,4 +16,6 @@ export const APP_ICON: Record<AppKey, (props: { className?: string }) => JSX.Ele
   calendar: GoogleCalendarIcon,
   discord: DiscordIcon,
   groupme: GroupMeIcon,
+  slack: SlackIcon,
+  github: GithubIcon,
 };

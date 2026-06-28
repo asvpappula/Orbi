@@ -12,8 +12,7 @@ export function CanvasConnectModal({
   onClose: () => void;
   onConnected: () => void;
 }) {
-  const [domain, setDomain] = useState("");
-  const [token, setToken] = useState("");
+  const [icalUrl, setIcalUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,14 +24,14 @@ export function CanvasConnectModal({
     setError("");
 
     try {
-      const response = await fetch("/api/integrations/canvas/connect", {
+      const response = await fetch("/api/integrations/canvas-ical/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain, token }),
+        body: JSON.stringify({ icalUrl }),
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Connection failed");
-      setToken("");
+      setIcalUrl("");
       onConnected();
       onClose();
     } catch (value) {
@@ -61,25 +60,24 @@ export function CanvasConnectModal({
 
         <form onSubmit={submit} className="mt-6 space-y-4">
           <label className="block text-sm font-semibold text-slate-700">
-            Canvas domain
+            Canvas Calendar Feed URL
             <input
               required
-              value={domain}
-              onChange={(event) => setDomain(event.target.value)}
-              placeholder="university.instructure.com"
+              type="url"
+              value={icalUrl}
+              onChange={(event) => setIcalUrl(event.target.value)}
+              placeholder="https://canvas.ucsc.edu/feeds/calendars/user_XXXX.ics"
               className="mt-1.5 h-12 w-full rounded-xl border border-white bg-white/70 px-4 font-normal outline-none focus:ring-2 focus:ring-primary/20"
             />
           </label>
-          <label className="block text-sm font-semibold text-slate-700">
-            Personal access token
-            <input
-              required
-              type="password"
-              value={token}
-              onChange={(event) => setToken(event.target.value)}
-              className="mt-1.5 h-12 w-full rounded-xl border border-white bg-white/70 px-4 font-normal outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </label>
+          <p className="text-sm leading-relaxed text-slate-500">
+            In Canvas: go to Calendar → look for the Calendar Feed link in the
+            bottom right → copy it.
+          </p>
+          <div className="rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm leading-relaxed text-sky-800">
+            We&apos;ll also automatically detect Canvas assignment emails in your
+            Gmail — no extra setup needed.
+          </div>
           <p className="min-h-5 text-sm text-rose-600">{error}</p>
           <button
             disabled={loading}
