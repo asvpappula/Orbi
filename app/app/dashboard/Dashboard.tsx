@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
   CalendarDays,
@@ -9,12 +9,16 @@ import {
   ClipboardList,
   Home,
   Inbox,
+  LogOut,
   type LucideIcon,
   Orbit,
   Reply,
   Settings,
+  User,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { AnimatedBadge, type BadgeStatus } from "@/components/ui/animated-badge";
 import { ExpandingSearch } from "@/components/ui/expanding-search";
 import { APP_ICON } from "./app-icons";
@@ -27,6 +31,11 @@ import {
 } from "./data";
 import { ContextPanel } from "./ContextPanel";
 import { AiReplyComposer } from "./AiReplyComposer";
+import { InboxView } from "./InboxView";
+import { SettingsView } from "./SettingsView";
+import { RepliesView } from "./RepliesView";
+import { CalendarView } from "./CalendarView";
+import { AssignmentsView } from "./AssignmentsView";
 
 type NavLabel =
   | "Home"
@@ -60,15 +69,17 @@ const ACCENT: Record<BadgeTone, string> = {
 export function Dashboard({
   fullName,
   connectedApps,
+  initialNav = "Home",
 }: {
   fullName: string;
   connectedApps: string[];
+  initialNav?: NavLabel;
 }) {
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
-  const [activeNav, setActiveNav] = useState<NavLabel>("Home");
+  const [activeNav, setActiveNav] = useState<NavLabel>(initialNav);
   const [syncErrors, setSyncErrors] = useState<string[]>([]);
   const firstName = fullName.split(/\s+/)[0] || "Student";
 
@@ -191,6 +202,7 @@ export function Dashboard({
     [filteredFeed, selectedId],
   );
   const context = selected?.context;
+  const isFeedView = activeNav === "Home";
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-slate-950">
@@ -204,47 +216,55 @@ export function Dashboard({
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar fullName={fullName} lastSynced={lastSynced} />
         <div className="flex min-h-0 flex-1">
-          {activeNav === "Settings" ? (
-            <main className="grid min-w-0 flex-1 place-items-center px-6 py-7 text-slate-500">
-              Settings coming soon
-            </main>
+          {activeNav === "Inbox" ? (
+            <InboxView />
+          ) : activeNav === "Assignments" ? (
+            <AssignmentsView />
+          ) : activeNav === "Calendar" ? (
+            <CalendarView />
+          ) : activeNav === "Replies" ? (
+            <RepliesView />
+          ) : activeNav === "Settings" ? (
+            <SettingsView />
           ) : (
-            <Feed
-              items={filteredFeed}
-              firstName={firstName}
-              selectedId={selectedId}
-              syncErrors={syncErrors}
-              onSelect={selectItem}
-            />
-          )}
-          {activeNav !== "Settings" && context && (
-            <ContextPanel
-              key={selectedId}
-              context={context}
-              onEdit={() => setComposerOpen(true)}
-              onSend={async (reply) => {
-                if (!context.thread?.fromEmail) throw new Error("No Gmail recipient found");
-                const response = await fetch("/api/integrations/gmail/send", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    to: context.thread.fromEmail,
-                    subject: context.thread.subject.startsWith("Re:")
-                      ? context.thread.subject
-                      : `Re: ${context.thread.subject}`,
-                    body: reply,
-                    threadId: context.thread.threadId,
-                  }),
-                });
-                if (!response.ok) throw new Error("Could not send reply");
-              }}
-              className="hidden w-[384px] shrink-0 xl:flex"
-            />
+            <>
+              <Feed
+                items={filteredFeed}
+                firstName={firstName}
+                selectedId={selectedId}
+                syncErrors={syncErrors}
+                onSelect={selectItem}
+              />
+              {context && (
+                <ContextPanel
+                  key={selectedId}
+                  context={context}
+                  onEdit={() => setComposerOpen(true)}
+                  onSend={async (reply) => {
+                    if (!context.thread?.fromEmail) throw new Error("No Gmail recipient found");
+                    const response = await fetch("/api/integrations/gmail/send", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        to: context.thread.fromEmail,
+                        subject: context.thread.subject.startsWith("Re:")
+                          ? context.thread.subject
+                          : `Re: ${context.thread.subject}`,
+                        body: reply,
+                        threadId: context.thread.threadId,
+                      }),
+                    });
+                    if (!response.ok) throw new Error("Could not send reply");
+                  }}
+                  className="hidden w-[384px] shrink-0 xl:flex"
+                />
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {activeNav !== "Settings" && context && (
+      {isFeedView && context && (
         <AiReplyComposer
           open={composerOpen}
           onClose={() => setComposerOpen(false)}
@@ -392,10 +412,97 @@ function TopBar({ fullName, lastSynced }: { fullName: string; lastSynced: Date |
         <Bell size={18} />
         <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-rose-500 ring-2 ring-white" />
       </button>
-      <span className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-sm font-bold text-white">
-        {initials}
-      </span>
+      <ProfileMenu initials={initials} />
     </header>
+  );
+}
+
+function ProfileMenu({ initials }: { initials: string }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(event: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [open]);
+
+  async function handleLogout() {
+    setOpen(false);
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  }
+
+  const items = [
+    {
+      icon: User,
+      label: "Account",
+      onClick: () => console.log("Account — coming soon"),
+    },
+    {
+      icon: Settings,
+      label: "Settings",
+      onClick: () => console.log("Settings — coming soon"),
+    },
+    { icon: LogOut, label: "Logout", onClick: handleLogout },
+  ];
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        aria-label="Profile menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className={cn(
+          "grid size-10 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-sm font-bold text-white transition",
+          open
+            ? "shadow-lg shadow-indigo-300/50 ring-2 ring-primary/50 ring-offset-2 ring-offset-background"
+            : "hover:shadow-md hover:shadow-indigo-200",
+        )}
+      >
+        {initials}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, scale: 0.9, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -6 }}
+            transition={{ type: "spring", stiffness: 320, damping: 24 }}
+            style={{ transformOrigin: "top right" }}
+            className="glass absolute right-0 top-full z-50 mt-2 w-48 rounded-2xl p-1.5"
+          >
+            {items.map(({ icon: Icon, label, onClick }) => (
+              <button
+                key={label}
+                type="button"
+                role="menuitem"
+                onClick={onClick}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-primary/10 hover:text-primary"
+              >
+                <Icon size={16} />
+                {label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
