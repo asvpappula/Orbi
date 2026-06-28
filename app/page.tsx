@@ -3,6 +3,7 @@ import { ContextFeature } from "@/components/landing/ContextFeature";
 import { Footer } from "@/components/landing/Footer";
 import { Hero } from "@/components/landing/Hero";
 import { Navbar } from "@/components/landing/Navbar";
+import { Pricing } from "@/components/landing/Pricing";
 import { Problem } from "@/components/landing/Problem";
 import { WaitlistCTA } from "@/components/landing/WaitlistCTA";
 
@@ -13,8 +14,13 @@ export default function Home() {
       <main>
         <Hero />
         <Problem />
-        <ContextFeature />
-        <AIReplies />
+        <div id="features" className="scroll-mt-28">
+          <ContextFeature />
+        </div>
+        <div id="how" className="scroll-mt-28">
+          <AIReplies />
+        </div>
+        <Pricing />
         <WaitlistCTA />
       </main>
       <Footer />
