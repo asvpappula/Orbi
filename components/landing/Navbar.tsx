@@ -5,6 +5,7 @@ import {
   AnimatePresence,
   motion,
   useMotionValueEvent,
+  useReducedMotion,
   useScroll,
 } from "framer-motion";
 import {
@@ -27,7 +28,8 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [openFeatures, setOpenFeatures] = useState(false);
   const { scrollY } = useScroll();
-  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
+  const reduce = useReducedMotion() ?? false;
+  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 20));
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-4">
@@ -39,11 +41,15 @@ export function Navbar() {
           paddingTop: scrolled ? 8 : 12,
           paddingBottom: scrolled ? 8 : 12,
         }}
-        transition={{ type: "spring", stiffness: 260, damping: 30 }}
+        transition={
+          reduce
+            ? { duration: 0 }
+            : { type: "spring", stiffness: 260, damping: 30 }
+        }
         className={cn(
-          "flex items-center justify-between gap-4 rounded-full px-3 sm:px-4",
+          "flex items-center justify-between gap-4 rounded-full px-3 transition-[background-color,box-shadow] duration-300 sm:px-4",
           scrolled
-            ? "border border-white/70 bg-white/60 shadow-[0_18px_50px_-20px_rgba(79,70,229,0.4)] backdrop-blur-2xl"
+            ? "border border-white/70 bg-white/80 shadow-[0_18px_50px_-20px_rgba(79,70,229,0.4)] backdrop-blur-md"
             : "border border-transparent bg-transparent",
         )}
       >
@@ -79,7 +85,7 @@ export function Navbar() {
                   initial={{ opacity: 0, y: 8, scale: 0.97 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.97 }}
-                  transition={{ duration: 0.18 }}
+                  transition={reduce ? { duration: 0 } : { duration: 0.18 }}
                   className="absolute left-1/2 top-full mt-2 w-72 -translate-x-1/2 rounded-2xl border border-white/70 bg-white/80 p-2 shadow-[0_24px_70px_-28px_rgba(79,70,229,0.45)] backdrop-blur-2xl"
                 >
                   {FEATURE_LINKS.map((f) => (

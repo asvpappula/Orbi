@@ -38,6 +38,9 @@
 
 :root {
   color-scheme: light;
+}
+
+html {
   scroll-behavior: smooth;
 }
 
@@ -145,11 +148,44 @@ body {
 }
 
 .animate-scroll-left {
-  animation: scroll-left 40s linear infinite;
+  animation: scroll-left 30s linear infinite;
 }
 
 .animate-scroll-right {
-  animation: scroll-right 40s linear infinite;
+  animation: scroll-right 30s linear infinite;
+}
+
+/* Hero gradient-mesh blobs */
+@keyframes float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(30px, 20px);
+  }
+}
+
+.animate-float {
+  animation: float 12s ease-in-out infinite;
+}
+
+.animate-float-rev {
+  animation: float 15s ease-in-out infinite reverse;
+}
+
+/* CTA button sheen */
+@keyframes shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -159,5 +195,12 @@ body {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  /* Stop the marquee outright and rest both rows at the same offset. */
+  .animate-scroll-left,
+  .animate-scroll-right {
+    animation: none !important;
+    transform: translateX(0) !important;
   }
 }

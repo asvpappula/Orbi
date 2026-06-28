@@ -1,9 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { LoaderCircle } from "lucide-react";
+import { fadeUpInView } from "./motion";
 
 export function WaitlistCTA() {
+  const reduce = useReducedMotion() ?? false;
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">(
     "idle",
@@ -26,9 +29,13 @@ export function WaitlistCTA() {
   }
 
   return (
-    <section id="waitlist" className="scroll-mt-24 bg-primary px-6 py-24 sm:py-32">
+    <motion.section
+      id="waitlist"
+      {...fadeUpInView(reduce)}
+      className="scroll-mt-24 bg-primary px-6 py-24 sm:py-32"
+    >
       <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-4xl font-bold tracking-[-0.03em] text-white sm:text-5xl">
+        <h2 className="text-4xl font-bold tracking-tight text-white md:text-5xl">
           Be the first to try Orbi
         </h2>
         <p className="mt-4 text-lg text-indigo-100">
@@ -51,18 +58,24 @@ export function WaitlistCTA() {
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@university.edu"
               disabled={status === "loading"}
-              className="h-14 w-full rounded-full bg-white px-6 text-slate-900 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-white/70 disabled:opacity-70"
+              className="h-14 w-full rounded-full bg-white px-6 text-slate-900 outline-none transition-all duration-300 placeholder:text-slate-400 focus:ring-2 focus:ring-white/70 disabled:opacity-70"
             />
             <button
               type="submit"
               disabled={status === "loading"}
-              className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-full bg-indigo-700 px-7 font-semibold text-white transition hover:bg-indigo-800 disabled:opacity-70"
+              className="group relative inline-flex h-14 shrink-0 items-center justify-center gap-2 overflow-hidden rounded-full bg-indigo-700 px-7 font-semibold text-white transition-all duration-300 hover:bg-indigo-800 disabled:opacity-70"
             >
-              {status === "loading" ? (
-                <LoaderCircle size={18} className="animate-spin" />
-              ) : (
-                "Join waitlist"
-              )}
+              <span
+                aria-hidden="true"
+                className="animate-shimmer pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
+              />
+              <span className="relative z-10 inline-flex items-center gap-2">
+                {status === "loading" ? (
+                  <LoaderCircle size={18} className="animate-spin" />
+                ) : (
+                  "Join waitlist"
+                )}
+              </span>
             </button>
           </form>
         )}
@@ -73,6 +86,6 @@ export function WaitlistCTA() {
           </p>
         )}
       </div>
-    </section>
+    </motion.section>
   );
 }

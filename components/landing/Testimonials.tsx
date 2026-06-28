@@ -1,3 +1,8 @@
+"use client";
+
+import { motion, useReducedMotion } from "framer-motion";
+import { fadeUpInView } from "./motion";
+
 type Testimonial = { quote: string; name: string; role: string };
 
 const TESTIMONIALS: Testimonial[] = [
@@ -80,16 +85,19 @@ function Card({ quote, name, role }: Testimonial) {
 }
 
 export function Testimonials() {
+  const reduce = useReducedMotion() ?? false;
+
   return (
-    <section
+    <motion.section
       id="testimonials"
+      {...fadeUpInView(reduce)}
       className="scroll-mt-24 overflow-hidden bg-white py-24 sm:py-32"
     >
       <div className="px-6">
         <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary">
           Testimonials
         </p>
-        <h2 className="mx-auto mt-4 max-w-2xl text-center text-4xl font-bold tracking-[-0.03em] text-slate-900 sm:text-5xl">
+        <h2 className="mx-auto mt-4 max-w-2xl text-center text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
           Loved by students and founders
         </h2>
       </div>
@@ -110,6 +118,6 @@ export function Testimonials() {
           </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   );
 }
