@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { encryptSecret } from "@/lib/security/encryption";
 
 type PendingCookie = {
   name: string;
@@ -61,6 +62,41 @@ export async function GET(request: NextRequest) {
 
   if (profileError) {
     return NextResponse.redirect(new URL("/login?error=profile", request.url));
+  }
+
+  if (session.provider_token) {
+    try {
+      const integrationNames = ["gmail", "google_calendar"];
+      const { data: existingRows } = await supabase
+        .from("user_integrations")
+        .select("integration_name, refresh_token")
+        .eq("user_id", user.id)
+        .in("integration_name", integrationNames);
+      const existingRefresh = new Map(
+        (existingRows ?? []).map((row) => [
+          row.integration_name,
+          row.refresh_token,
+        ]),
+      );
+      const refreshToken = session.provider_refresh_token
+        ? encryptSecret(session.provider_refresh_token)
+        : null;
+
+      await supabase.from("user_integrations").upsert(
+        integrationNames.map((integrationName) => ({
+          user_id: user.id,
+          integration_name: integrationName,
+          access_token: encryptSecret(session.provider_token!),
+          refresh_token:
+            refreshToken ?? existingRefresh.get(integrationName) ?? null,
+          expires_at: new Date(Date.now() + 55 * 60 * 1000).toISOString(),
+          connected_at: new Date().toISOString(),
+        })),
+        { onConflict: "user_id,integration_name" },
+      );
+    } catch (error) {
+      console.error("Could not persist Google integration tokens", error);
+    }
   }
 
   const destination = profile.onboarding_complete

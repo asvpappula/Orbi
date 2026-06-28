@@ -41,6 +41,18 @@ export default function LoginPage() {
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: [
+            "openid",
+            "email",
+            "profile",
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/calendar.readonly",
+          ].join(" "),
+          queryParams: {
+            access_type: "offline",
+            prompt: "consent",
+          },
         },
       });
 

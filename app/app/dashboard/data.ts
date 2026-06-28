@@ -24,6 +24,7 @@ export type ChecklistState = "done" | "partial" | "todo";
 export type ContextData = {
   eyebrow: string;
   title: string;
+  sourceCount?: number;
   due?: { label: string; tone: BadgeTone };
   detail?: {
     app: AppKey;
@@ -32,12 +33,21 @@ export type ContextData = {
     body: string;
     checklist?: { label: string; state: ChecklistState }[];
   };
-  thread?: { app: AppKey; from: string; subject: string; preview: string };
+  thread?: {
+    app: AppKey;
+    from: string;
+    fromEmail?: string;
+    subject: string;
+    preview: string;
+    threadId?: string;
+    messageId?: string;
+  };
   aiReply: string;
 };
 
 export type FeedItem = {
   id: string;
+  itemType?: "canvas" | "gmail";
   app: AppKey;
   title: string;
   preview: string;

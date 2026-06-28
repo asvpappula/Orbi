@@ -6,6 +6,7 @@ import { ArrowRight, Check, LoaderCircle, Lock, Orbit } from "lucide-react";
 import { INTEGRATIONS, type Integration } from "./integrations";
 import { INTEGRATION_ICONS } from "./icons";
 import { completeOnboarding, connectIntegration } from "./actions";
+import { CanvasConnectModal } from "./CanvasConnectModal";
 
 const TOTAL_STEPS = 3;
 
@@ -27,10 +28,21 @@ export function OnboardingFlow({
   );
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [canvasModalOpen, setCanvasModalOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   function handleConnect(integration: Integration) {
     if (connecting || connected.has(integration.id)) return;
+
+    if (integration.id === "canvas") {
+      setCanvasModalOpen(true);
+      return;
+    }
+
+    if (integration.id === "discord") {
+      window.location.assign("/api/integrations/discord/connect");
+      return;
+    }
     setError("");
     setConnecting(integration.id);
     // Optimistic: flip to connected immediately, reconcile with the server.
@@ -94,6 +106,14 @@ export function OnboardingFlow({
         )}
         {step === 3 && <DoneStep />}
       </div>
+
+      <CanvasConnectModal
+        open={canvasModalOpen}
+        onClose={() => setCanvasModalOpen(false)}
+        onConnected={() =>
+          setConnected((previous) => new Set(previous).add("canvas"))
+        }
+      />
     </main>
   );
 }

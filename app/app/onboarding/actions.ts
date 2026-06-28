@@ -33,6 +33,29 @@ export async function connectIntegration(
 
     if (!user) return { ok: false, error: "Not signed in" };
 
+    if (integrationName === "canvas" || integrationName === "discord") {
+      return {
+        ok: false,
+        error: `${integrationName} requires its dedicated connection flow`,
+      };
+    }
+
+    if (
+      integrationName === "gmail" ||
+      integrationName === "google_calendar"
+    ) {
+      const { data } = await supabase
+        .from("user_integrations")
+        .select("access_token")
+        .eq("user_id", user.id)
+        .eq("integration_name", integrationName)
+        .maybeSingle();
+      if (!data?.access_token) {
+        return { ok: false, error: "Reconnect with Google to grant access" };
+      }
+      return { ok: true };
+    }
+
     const { error } = await supabase.from("user_integrations").upsert(
       {
         user_id: user.id,

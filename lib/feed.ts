@@ -1,0 +1,177 @@
+import { assertUserId } from "@/lib/auth/server";
+
+type BadgeTone = "due" | "unread" | "new" | "soon";
+
+export type UnifiedFeedItem = {
+  id: string;
+  itemType: "canvas" | "gmail";
+  app: "canvas" | "gmail";
+  title: string;
+  preview: string;
+  time: string;
+  timestamp: string | null;
+  urgency: number;
+  badge: { label: string; tone: BadgeTone };
+  unread?: boolean;
+  context: {
+    eyebrow: string;
+    title: string;
+    sourceCount?: number;
+    due?: { label: string; tone: BadgeTone };
+    detail?: {
+      app: "canvas" | "gmail";
+      heading: string;
+      meta: { label: string; value: string }[];
+      body: string;
+    };
+    thread?: {
+      app: "gmail";
+      from: string;
+      fromEmail?: string;
+      subject: string;
+      preview: string;
+      threadId?: string;
+      messageId?: string;
+    };
+    aiReply: string;
+  };
+};
+
+function relativeTime(value: string | null) {
+  if (!value) return "";
+  const diff = Date.now() - new Date(value).getTime();
+  const minutes = Math.max(0, Math.round(diff / 60_000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function dueUrgency(value: string | null) {
+  if (!value) return { score: 1, label: "Assignment", tone: "new" as const };
+  const due = new Date(value);
+  const now = new Date();
+  const endOfToday = new Date(now);
+  endOfToday.setHours(23, 59, 59, 999);
+  const diff = due.getTime() - now.getTime();
+
+  if (diff < 0) return { score: 50, label: "Overdue", tone: "due" as const };
+  if (due <= endOfToday) {
+    return { score: 40, label: "Due today", tone: "due" as const };
+  }
+  if (diff <= 3 * 24 * 60 * 60 * 1000) {
+    return { score: 20, label: "Due soon", tone: "soon" as const };
+  }
+  return { score: 2, label: "Upcoming", tone: "new" as const };
+}
+
+function dueLabel(value: string | null) {
+  if (!value) return "No due date";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+export async function getUnifiedFeed(userId: string) {
+  const { supabase } = await assertUserId(userId);
+  const [{ data: canvas, error: canvasError }, { data: gmail, error: gmailError }] =
+    await Promise.all([
+      supabase
+        .from("canvas_items")
+        .select("*")
+        .eq("user_id", userId)
+        .order("due_date", { ascending: true, nullsFirst: false })
+        .limit(100),
+      supabase
+        .from("gmail_items")
+        .select("*")
+        .eq("user_id", userId)
+        .order("timestamp", { ascending: false })
+        .limit(100),
+    ]);
+
+  if (canvasError) throw new Error(canvasError.message);
+  if (gmailError) throw new Error(gmailError.message);
+
+  const canvasItems: UnifiedFeedItem[] = (canvas ?? []).map((item) => {
+    const urgency = dueUrgency(item.due_date);
+    return {
+      id: `canvas:${item.id}`,
+      itemType: "canvas",
+      app: "canvas",
+      title: item.title,
+      preview: item.description?.replace(/<[^>]*>/g, " ").slice(0, 240) ?? "",
+      time: relativeTime(item.fetched_at),
+      timestamp: item.due_date,
+      urgency: urgency.score,
+      badge: { label: urgency.label, tone: urgency.tone },
+      unread: item.status !== "submitted" && item.status !== "graded",
+      context: {
+        eyebrow: `${item.course_name ?? "Canvas"} · Assignment`,
+        title: item.title,
+        sourceCount: 1,
+        due: { label: dueLabel(item.due_date), tone: urgency.tone },
+        detail: {
+          app: "canvas",
+          heading: "Canvas assignment",
+          meta: [
+            { label: "Course", value: item.course_name ?? "Canvas" },
+            { label: "Points", value: String(item.points ?? "—") },
+            { label: "Status", value: item.status ?? "todo" },
+          ],
+          body: item.description?.replace(/<[^>]*>/g, " ") ?? "",
+        },
+        aiReply: "",
+      },
+    };
+  });
+
+  const gmailItems: UnifiedFeedItem[] = (gmail ?? []).map((item) => ({
+    id: `gmail:${item.id}`,
+    itemType: "gmail",
+    app: "gmail",
+    title: `${item.from_name || item.from_email || "Unknown"} · ${item.subject || "(no subject)"}`,
+    preview: item.preview ?? item.body?.slice(0, 240) ?? "",
+    time: relativeTime(item.timestamp),
+    timestamp: item.timestamp,
+    urgency: item.is_read ? 1 : 30,
+    badge: item.is_read
+      ? { label: "Email", tone: "new" }
+      : { label: "Unread", tone: "unread" },
+    unread: !item.is_read,
+    context: {
+      eyebrow: "Gmail",
+      title: item.subject ?? "(no subject)",
+      sourceCount: 1,
+      detail: {
+        app: "gmail",
+        heading: `From ${item.from_name || item.from_email || "Unknown"}`,
+        meta: [
+          { label: "From", value: item.from_email ?? "—" },
+          { label: "When", value: relativeTime(item.timestamp) },
+        ],
+        body: item.body ?? item.preview ?? "",
+      },
+      thread: {
+        app: "gmail",
+        from: item.from_name || item.from_email || "Unknown",
+        fromEmail: item.from_email ?? undefined,
+        subject: item.subject ?? "(no subject)",
+        preview: item.preview ?? "",
+        threadId: item.thread_id,
+        messageId: item.gmail_id,
+      },
+      aiReply: "",
+    },
+  }));
+
+  return [...canvasItems, ...gmailItems].sort((a, b) => {
+    if (b.urgency !== a.urgency) return b.urgency - a.urgency;
+    const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return bTime - aTime;
+  });
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bell,
@@ -21,7 +21,6 @@ import { APP_ICON } from "./app-icons";
 import {
   APP_META,
   BADGE_TONES,
-  FEED,
   type AppKey,
   type BadgeTone,
   type FeedItem,
@@ -44,14 +43,6 @@ const NAV: {
   { icon: Settings, label: "Settings" },
 ];
 
-const CONNECTED: { app: AppKey; status: BadgeStatus }[] = [
-  { app: "canvas", status: "connected" },
-  { app: "gmail", status: "connected" },
-  { app: "discord", status: "connected" },
-  { app: "groupme", status: "connected" },
-  { app: "calendar", status: "syncing" },
-];
-
 const ACCENT: Record<BadgeTone, string> = {
   due: "border-l-rose-400",
   unread: "border-l-sky-400",
@@ -59,41 +50,154 @@ const ACCENT: Record<BadgeTone, string> = {
   soon: "border-l-amber-400",
 };
 
-export function Dashboard() {
-  const [selectedId, setSelectedId] = useState(FEED[0].id);
+export function Dashboard({
+  fullName,
+  connectedApps,
+}: {
+  fullName: string;
+  connectedApps: string[];
+}) {
+  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [selectedId, setSelectedId] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const firstName = fullName.split(/\s+/)[0] || "Student";
 
-  const selected = FEED.find((f) => f.id === selectedId) ?? FEED[0];
-  const context = selected.context;
+  const loadFeed = useCallback(async () => {
+    const response = await fetch("/api/feed", { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not load your feed");
+    const payload = (await response.json()) as { items: FeedItem[] };
+    setFeed(payload.items);
+    setSelectedId((current) =>
+      payload.items.some((item) => item.id === current)
+        ? current
+        : (payload.items[0]?.id ?? ""),
+    );
+  }, []);
+
+  const sync = useCallback(async () => {
+    const response = await fetch("/api/sync", { method: "POST" });
+    if (response.ok) {
+      const payload = (await response.json()) as { syncedAt?: string };
+      setLastSynced(payload.syncedAt ? new Date(payload.syncedAt) : new Date());
+    }
+    await loadFeed();
+  }, [loadFeed]);
+
+  useEffect(() => {
+    void sync().catch(console.error);
+    const interval = window.setInterval(() => void sync().catch(console.error), 15 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, [sync]);
+
+  const selectItem = useCallback(async (id: string) => {
+    setSelectedId(id);
+    const item = feed.find((value) => value.id === id);
+    if (!item?.itemType) return;
+    try {
+      const response = await fetch("/api/ai/stitch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId: item.id, itemType: item.itemType }),
+      });
+      if (!response.ok || !response.body) return;
+      const text = await response.text();
+      const lines = text.trim().split("\n");
+      const result = lines
+        .map((line) => JSON.parse(line) as { type: string; data?: { sourceCount: number; relatedEmails: Array<Record<string, unknown>> } })
+        .find((line) => line.type === "result")?.data;
+      if (!result) return;
+      setFeed((current) =>
+        current.map((value) => {
+          if (value.id !== id) return value;
+          const related = result.relatedEmails[0];
+          const thread = related
+            ? {
+                app: "gmail" as const,
+                from: String(related.from_name || related.from_email || "Unknown"),
+                fromEmail: String(related.from_email || ""),
+                subject: String(related.subject || "(no subject)"),
+                preview: String(related.preview || related.body || ""),
+                threadId: String(related.thread_id || ""),
+                messageId: String(related.gmail_id || ""),
+              }
+            : value.context.thread;
+          return {
+            ...value,
+            context: { ...value.context, sourceCount: result.sourceCount, thread },
+          };
+        }),
+      );
+    } catch (error) {
+      console.error("Could not stitch context", error);
+    }
+  }, [feed]);
+
+  const selected = useMemo(
+    () => feed.find((item) => item.id === selectedId) ?? feed[0],
+    [feed, selectedId],
+  );
+  const context = selected?.context;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-slate-950">
-      <Sidebar />
+      <Sidebar fullName={fullName} connectedApps={connectedApps} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar />
+        <TopBar fullName={fullName} lastSynced={lastSynced} />
         <div className="flex min-h-0 flex-1">
-          <Feed selectedId={selectedId} onSelect={setSelectedId} />
-          <ContextPanel
-            key={selectedId}
-            context={context}
-            onEdit={() => setComposerOpen(true)}
-            className="hidden w-[384px] shrink-0 xl:flex"
-          />
+          <Feed items={feed} firstName={firstName} selectedId={selectedId} onSelect={selectItem} />
+          {context && (
+            <ContextPanel
+              key={selectedId}
+              context={context}
+              onEdit={() => setComposerOpen(true)}
+              onSend={async (reply) => {
+                if (!context.thread?.fromEmail) throw new Error("No Gmail recipient found");
+                const response = await fetch("/api/integrations/gmail/send", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    to: context.thread.fromEmail,
+                    subject: context.thread.subject.startsWith("Re:")
+                      ? context.thread.subject
+                      : `Re: ${context.thread.subject}`,
+                    body: reply,
+                    threadId: context.thread.threadId,
+                  }),
+                });
+                if (!response.ok) throw new Error("Could not send reply");
+              }}
+              className="hidden w-[384px] shrink-0 xl:flex"
+            />
+          )}
         </div>
       </div>
 
-      <AiReplyComposer
-        open={composerOpen}
-        onClose={() => setComposerOpen(false)}
-        thread={context.thread}
-        initialReply={context.aiReply}
-      />
+      {context && (
+        <AiReplyComposer
+          open={composerOpen}
+          onClose={() => setComposerOpen(false)}
+          thread={context.thread}
+          initialReply={context.aiReply}
+        />
+      )}
     </div>
   );
 }
 
-function Sidebar() {
+function Sidebar({ fullName, connectedApps }: { fullName: string; connectedApps: string[] }) {
+  const initials = fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
+  const candidates: { app: AppKey; integration: string; status: BadgeStatus }[] = [
+    { app: "canvas", integration: "canvas", status: "connected" },
+    { app: "gmail", integration: "gmail", status: "connected" },
+    { app: "discord", integration: "discord", status: "connected" },
+    { app: "groupme", integration: "groupme", status: "connected" },
+    { app: "calendar", integration: "google_calendar", status: "connected" },
+  ];
+  const connected = candidates.filter(({ integration }) =>
+    connectedApps.includes(integration),
+  );
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-white/60 bg-white/45 px-4 py-5 backdrop-blur-xl md:flex">
       <div className="flex items-center gap-2.5 px-2">
@@ -140,7 +244,7 @@ function Sidebar() {
         Connected apps
       </p>
       <div className="mt-2 space-y-0.5">
-        {CONNECTED.map(({ app, status }) => {
+        {connected.map(({ app, status }) => {
           const Icon = APP_ICON[app];
           return (
             <div
@@ -166,11 +270,11 @@ function Sidebar() {
 
       <div className="mt-auto flex items-center gap-2.5 rounded-2xl border border-white/70 bg-white/60 p-2.5">
         <span className="grid size-9 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-xs font-bold text-white">
-          AR
+          {initials}
         </span>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-slate-900">
-            Alex Rivera
+            {fullName}
           </p>
           <p className="truncate text-xs text-slate-400">Purdue · Junior</p>
         </div>
@@ -179,10 +283,24 @@ function Sidebar() {
   );
 }
 
-function TopBar() {
+function TopBar({ fullName, lastSynced }: { fullName: string; lastSynced: Date | null }) {
+  const initials = fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+  const minutes = lastSynced
+    ? Math.max(0, Math.floor((now - lastSynced.getTime()) / 60_000))
+    : null;
   return (
     <header className="flex items-center gap-4 border-b border-white/60 px-6 py-3.5">
       <ExpandingSearch className="shrink-0" />
+      <span className="text-xs text-slate-400">
+        {minutes === null
+          ? "Syncing…"
+          : `Last synced ${minutes < 1 ? "<1 min" : `${minutes}m`} ago`}
+      </span>
       <div className="flex-1" />
       <button
         aria-label="Notifications"
@@ -192,16 +310,20 @@ function TopBar() {
         <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-rose-500 ring-2 ring-white" />
       </button>
       <span className="grid size-10 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-sm font-bold text-white">
-        AR
+        {initials}
       </span>
     </header>
   );
 }
 
 function Feed({
+  items,
+  firstName,
   selectedId,
   onSelect,
 }: {
+  items: FeedItem[];
+  firstName: string;
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
@@ -211,10 +333,10 @@ function Feed({
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
-              Good morning, Alex
+              Good morning, {firstName}
             </h1>
             <p className="mt-1.5 text-sm text-slate-500">
-              Orbi pulled 12 things that need attention across your 5 apps.
+              Orbi pulled {items.length} things that need attention across your apps.
             </p>
           </div>
           <button className="hidden shrink-0 items-center gap-1.5 rounded-full border border-white/70 bg-white/60 px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:text-primary sm:flex">
@@ -224,7 +346,7 @@ function Feed({
         </div>
 
         <div className="mt-6 space-y-3">
-          {FEED.map((item) => (
+          {items.map((item) => (
             <FeedCard
               key={item.id}
               item={item}

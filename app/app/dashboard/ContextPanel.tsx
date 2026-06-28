@@ -14,13 +14,17 @@ import {
 export function ContextPanel({
   context,
   onEdit,
+  onSend,
   className,
 }: {
   context: ContextData;
   onEdit: () => void;
+  onSend: (reply: string) => Promise<void>;
   className?: string;
 }) {
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
   const DetailIcon = context.detail ? APP_ICON[context.detail.app] : null;
 
   return (
@@ -35,7 +39,7 @@ export function ContextPanel({
           Context view
         </p>
         <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-          <Sparkles size={10} /> 7 sources stitched
+          <Sparkles size={10} /> {context.sourceCount ?? 1} sources stitched
         </span>
       </div>
 
@@ -131,10 +135,22 @@ export function ContextPanel({
         ) : (
           <div className="mt-4 flex items-center gap-2">
             <button
-              onClick={() => setSent(true)}
+              onClick={async () => {
+                setSending(true);
+                setError("");
+                try {
+                  await onSend(context.aiReply);
+                  setSent(true);
+                } catch (sendError) {
+                  setError(sendError instanceof Error ? sendError.message : "Could not send reply");
+                } finally {
+                  setSending(false);
+                }
+              }}
+              disabled={sending || !context.aiReply}
               className="group flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-200 transition hover:bg-indigo-500"
             >
-              <Send size={14} /> Confirm &amp; Send
+              <Send size={14} /> {sending ? "Sending…" : "Confirm & Send"}
             </button>
             <button
               onClick={onEdit}
@@ -144,6 +160,7 @@ export function ContextPanel({
             </button>
           </div>
         )}
+        {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
       </div>
       <div className="h-4 shrink-0" />
     </aside>

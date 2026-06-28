@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Pencil, Send, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TONE_DRAFTS, type ContextData } from "./data";
+import { type ContextData } from "./data";
 
 const TONES = ["Casual", "Professional", "Short", "Detailed"] as const;
 type Tone = (typeof TONES)[number];
@@ -32,15 +32,51 @@ export function AiReplyComposer({
   const [tone, setTone] = useState<Tone>("Casual");
   const [draft, setDraft] = useState(initialReply);
   const [sent, setSent] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    if (open) {
+  const generate = useCallback(async (nextTone: Tone) => {
+    if (!thread) return;
+    setGenerating(true);
+    setError("");
+    setDraft("");
+    try {
+      const response = await fetch("/api/ai/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: thread.preview,
+          subject: thread.subject,
+          recipient: thread.from,
+          tone: nextTone.toLowerCase(),
+        }),
+      });
+      if (!response.ok || !response.body) throw new Error("Could not draft a reply");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        setDraft((current) => current + decoder.decode(value, { stream: true }));
+      }
+    } catch (draftError) {
+      setError(draftError instanceof Error ? draftError.message : "Could not draft a reply");
       setDraft(initialReply);
-      setTone("Casual");
-      setSent(false);
+    } finally {
+      setGenerating(false);
     }
-  }, [open, initialReply]);
+  }, [initialReply, thread]);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraft(initialReply);
+    setTone("Casual");
+    setSent(false);
+    setError("");
+    void generate("Casual");
+  }, [open, initialReply, generate]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,12 +89,35 @@ export function AiReplyComposer({
 
   function pickTone(t: Tone) {
     setTone(t);
-    setDraft(TONE_DRAFTS[t] ?? initialReply);
+    void generate(t);
   }
 
-  function send() {
-    setSent(true);
-    window.setTimeout(onClose, 1500);
+  async function send() {
+    if (!thread?.fromEmail) {
+      setError("No Gmail recipient was found for this item");
+      return;
+    }
+    setSending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/integrations/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: thread.fromEmail,
+          subject: thread.subject.startsWith("Re:") ? thread.subject : `Re: ${thread.subject}`,
+          body: draft,
+          threadId: thread.threadId,
+        }),
+      });
+      if (!response.ok) throw new Error("Could not send reply");
+      setSent(true);
+      window.setTimeout(onClose, 1500);
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "Could not send reply");
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -160,6 +219,7 @@ export function AiReplyComposer({
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   rows={5}
+                  placeholder={generating ? "Orbi is drafting…" : "Write a reply…"}
                   className="mt-2 w-full resize-none rounded-2xl border border-white/80 bg-white/70 p-4 text-sm leading-relaxed text-slate-700 outline-none transition focus:ring-2 focus:ring-primary/20"
                 />
 
@@ -171,6 +231,7 @@ export function AiReplyComposer({
                     <button
                       key={t}
                       onClick={() => pickTone(t)}
+                      disabled={generating}
                       className={cn(
                         "rounded-full px-3.5 py-1.5 text-sm font-medium transition",
                         tone === t
@@ -186,9 +247,10 @@ export function AiReplyComposer({
                 <div className="mt-6 flex items-center gap-3">
                   <button
                     onClick={send}
+                    disabled={generating || sending || !draft.trim()}
                     className="group flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition hover:-translate-y-0.5 hover:bg-indigo-500"
                   >
-                    <Send size={15} /> Confirm &amp; Send
+                    <Send size={15} /> {sending ? "Sending…" : "Confirm & Send"}
                   </button>
                   <button
                     onClick={() => textareaRef.current?.focus()}
@@ -203,6 +265,7 @@ export function AiReplyComposer({
                     Discard
                   </button>
                 </div>
+                {error && <p className="mt-3 text-sm text-rose-500">{error}</p>}
               </>
             )}
           </motion.div>
