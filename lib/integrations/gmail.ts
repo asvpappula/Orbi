@@ -119,17 +119,27 @@ async function persistMessages(userId: string, messages: GmailMessage[]) {
   if (error) throw new Error(error.message);
 }
 
-export async function fetchEmails(userId: string, maxResults = 50) {
+async function fetchInBatches(token: string, ids: string[], batchSize = 5) {
+  const messages = [];
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = ids.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map((id) => fetchMessage(token, id)));
+    messages.push(...results);
+    if (i + batchSize < ids.length) await new Promise((r) => setTimeout(r, 200));
+  }
+  return messages;
+}
+
+export async function fetchEmails(userId: string, maxResults = 20) {
   await assertUserId(userId);
   const token = await getGoogleAccessToken(userId, "gmail");
-  const limit = Math.min(Math.max(maxResults, 1), 100);
+  const limit = Math.min(Math.max(maxResults, 1), 50);
   const list = await gmailRequest<{ messages?: { id: string }[] }>(
     token,
     `/messages?maxResults=${limit}&q=${encodeURIComponent("-in:spam -in:trash")}`,
   );
-  const messages = await Promise.all(
-    (list.messages ?? []).map(({ id }) => fetchMessage(token, id)),
-  );
+  const ids = (list.messages ?? []).map(({ id }) => id);
+  const messages = await fetchInBatches(token, ids);
   await persistMessages(userId, messages);
   return messages.map((message) => toRow(userId, message));
 }
