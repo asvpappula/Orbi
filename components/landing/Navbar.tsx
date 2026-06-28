@@ -118,16 +118,24 @@ export function Navbar() {
           </a>
         </div>
 
-        <a
-          href="#waitlist"
-          className="group inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-300/50 transition hover:-translate-y-0.5 hover:bg-indigo-500 sm:px-5"
-        >
-          Get early access
-          <ArrowUpRight
-            size={15}
-            className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-          />
-        </a>
+        <div className="flex shrink-0 items-center gap-2">
+          <a
+            href="/login"
+            className="rounded-full px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white/70 hover:text-slate-950"
+          >
+            Log in
+          </a>
+          <a
+            href="/login"
+            className="group inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-300/50 transition hover:-translate-y-0.5 hover:bg-indigo-500 sm:px-5"
+          >
+            Get early access
+            <ArrowUpRight
+              size={15}
+              className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            />
+          </a>
+        </div>
       </motion.nav>
     </header>
   );

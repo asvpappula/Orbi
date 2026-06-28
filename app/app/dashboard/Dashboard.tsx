@@ -28,14 +28,21 @@ import {
 import { ContextPanel } from "./ContextPanel";
 import { AiReplyComposer } from "./AiReplyComposer";
 
+type NavLabel =
+  | "Home"
+  | "Inbox"
+  | "Assignments"
+  | "Calendar"
+  | "Replies"
+  | "Settings";
+
 const NAV: {
   icon: LucideIcon;
-  label: string;
-  active?: boolean;
+  label: NavLabel;
   badge?: string;
   dot?: boolean;
 }[] = [
-  { icon: Home, label: "Home", active: true },
+  { icon: Home, label: "Home" },
   { icon: Inbox, label: "Inbox", badge: "2" },
   { icon: ClipboardList, label: "Assignments" },
   { icon: CalendarDays, label: "Calendar" },
@@ -61,6 +68,8 @@ export function Dashboard({
   const [selectedId, setSelectedId] = useState("");
   const [composerOpen, setComposerOpen] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const [activeNav, setActiveNav] = useState<NavLabel>("Home");
+  const [syncErrors, setSyncErrors] = useState<string[]>([]);
   const firstName = fullName.split(/\s+/)[0] || "Student";
 
   const loadFeed = useCallback(async () => {
@@ -77,8 +86,25 @@ export function Dashboard({
 
   const sync = useCallback(async () => {
     const response = await fetch("/api/sync", { method: "POST" });
+    const payload = (await response.json().catch(() => ({}))) as {
+      syncedAt?: string;
+      error?: string;
+      integrations?: Array<{ name: string; ok: boolean; error?: string }>;
+    };
+    const failures = (payload.integrations ?? []).filter(
+      (integration) => !integration.ok,
+    );
+    setSyncErrors(
+      failures.length > 0
+        ? failures.map(
+            (integration) =>
+              `${integration.name}: ${integration.error ?? "Sync failed"}`,
+          )
+        : response.ok
+          ? []
+          : [payload.error ?? "Sync failed"],
+    );
     if (response.ok) {
-      const payload = (await response.json()) as { syncedAt?: string };
       setLastSynced(payload.syncedAt ? new Date(payload.syncedAt) : new Date());
     }
     await loadFeed();
@@ -133,21 +159,65 @@ export function Dashboard({
     }
   }, [feed]);
 
+  const filteredFeed = useMemo(() => {
+    switch (activeNav) {
+      case "Inbox":
+        return feed.filter((item) => item.app === "gmail");
+      case "Assignments":
+        return feed.filter((item) => item.app === "canvas");
+      case "Calendar":
+        return feed;
+      case "Replies":
+        return feed.filter((item) => item.unread === true);
+      case "Settings":
+        return [];
+      default:
+        return feed;
+    }
+  }, [activeNav, feed]);
+
+  useEffect(() => {
+    if (activeNav === "Settings") return;
+    setSelectedId((current) =>
+      filteredFeed.some((item) => item.id === current)
+        ? current
+        : (filteredFeed[0]?.id ?? ""),
+    );
+  }, [activeNav, filteredFeed]);
+
   const selected = useMemo(
-    () => feed.find((item) => item.id === selectedId) ?? feed[0],
-    [feed, selectedId],
+    () =>
+      filteredFeed.find((item) => item.id === selectedId) ?? filteredFeed[0],
+    [filteredFeed, selectedId],
   );
   const context = selected?.context;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-slate-950">
-      <Sidebar fullName={fullName} connectedApps={connectedApps} />
+      <Sidebar
+        fullName={fullName}
+        connectedApps={connectedApps}
+        activeNav={activeNav}
+        onNavSelect={setActiveNav}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar fullName={fullName} lastSynced={lastSynced} />
         <div className="flex min-h-0 flex-1">
-          <Feed items={feed} firstName={firstName} selectedId={selectedId} onSelect={selectItem} />
-          {context && (
+          {activeNav === "Settings" ? (
+            <main className="grid min-w-0 flex-1 place-items-center px-6 py-7 text-slate-500">
+              Settings coming soon
+            </main>
+          ) : (
+            <Feed
+              items={filteredFeed}
+              firstName={firstName}
+              selectedId={selectedId}
+              syncErrors={syncErrors}
+              onSelect={selectItem}
+            />
+          )}
+          {activeNav !== "Settings" && context && (
             <ContextPanel
               key={selectedId}
               context={context}
@@ -174,7 +244,7 @@ export function Dashboard({
         </div>
       </div>
 
-      {context && (
+      {activeNav !== "Settings" && context && (
         <AiReplyComposer
           open={composerOpen}
           onClose={() => setComposerOpen(false)}
@@ -186,7 +256,17 @@ export function Dashboard({
   );
 }
 
-function Sidebar({ fullName, connectedApps }: { fullName: string; connectedApps: string[] }) {
+function Sidebar({
+  fullName,
+  connectedApps,
+  activeNav,
+  onNavSelect,
+}: {
+  fullName: string;
+  connectedApps: string[];
+  activeNav: NavLabel;
+  onNavSelect: (label: NavLabel) => void;
+}) {
   const initials = fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase();
   const candidates: { app: AppKey; integration: string; status: BadgeStatus }[] = [
     { app: "canvas", integration: "canvas", status: "connected" },
@@ -211,12 +291,13 @@ function Sidebar({ fullName, connectedApps }: { fullName: string; connectedApps:
         {NAV.map((item) => (
           <motion.button
             key={item.label}
+            onClick={() => onNavSelect(item.label)}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
             className={cn(
               "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-              item.active
+              activeNav === item.label
                 ? "bg-primary text-white shadow-md shadow-indigo-200"
                 : "text-slate-600 hover:bg-white/80 hover:text-slate-950",
             )}
@@ -227,7 +308,9 @@ function Sidebar({ fullName, connectedApps }: { fullName: string; connectedApps:
               <span
                 className={cn(
                   "grid size-5 place-items-center rounded-full text-[10px] font-bold",
-                  item.active ? "bg-white/25 text-white" : "bg-primary text-white",
+                  activeNav === item.label
+                    ? "bg-white/25 text-white"
+                    : "bg-primary text-white",
                 )}
               >
                 {item.badge}
@@ -320,11 +403,13 @@ function Feed({
   items,
   firstName,
   selectedId,
+  syncErrors,
   onSelect,
 }: {
   items: FeedItem[];
   firstName: string;
   selectedId: string;
+  syncErrors: string[];
   onSelect: (id: string) => void;
 }) {
   return (
@@ -338,6 +423,11 @@ function Feed({
             <p className="mt-1.5 text-sm text-slate-500">
               Orbi pulled {items.length} things that need attention across your apps.
             </p>
+            {syncErrors.length > 0 && (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Some integrations had issues: {syncErrors.join(", ")}
+              </div>
+            )}
           </div>
           <button className="hidden shrink-0 items-center gap-1.5 rounded-full border border-white/70 bg-white/60 px-3.5 py-2 text-xs font-semibold text-slate-600 transition hover:text-primary sm:flex">
             Sorted by urgency

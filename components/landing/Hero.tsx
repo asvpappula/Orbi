@@ -72,7 +72,7 @@ export function Hero() {
 
           <div className="mt-8 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
             <a
-              href="#waitlist"
+              href="/login"
               className="group inline-flex items-center gap-3 rounded-full bg-primary px-6 py-3.5 text-base font-semibold text-white shadow-[0_16px_35px_-12px_rgba(99,102,241,0.7)] transition hover:-translate-y-0.5 hover:bg-indigo-500"
             >
               Get early access

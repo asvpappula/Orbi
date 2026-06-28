@@ -26,6 +26,14 @@ export async function GET(request: NextRequest) {
   }
 
   let pendingCookies: PendingCookie[] = [];
+  const redirectWithCookies = (path: string) => {
+    const response = NextResponse.redirect(new URL(path, request.url));
+    pendingCookies.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, options);
+    });
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  };
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll: () => request.cookies.getAll(),
@@ -41,7 +49,7 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.exchangeCodeForSession(code);
 
   if (authError || !session?.user) {
-    return NextResponse.redirect(new URL("/login?error=oauth", request.url));
+    return redirectWithCookies("/login?error=oauth");
   }
 
   const user = session.user;
@@ -61,7 +69,7 @@ export async function GET(request: NextRequest) {
     .single();
 
   if (profileError) {
-    return NextResponse.redirect(new URL("/login?error=profile", request.url));
+    return redirectWithCookies("/login?error=profile");
   }
 
   if (session.provider_token) {
@@ -102,11 +110,5 @@ export async function GET(request: NextRequest) {
   const destination = profile.onboarding_complete
     ? "/app/dashboard"
     : "/app/onboarding";
-  const response = NextResponse.redirect(new URL(destination, request.url));
-
-  pendingCookies.forEach(({ name, value, options }) => {
-    response.cookies.set(name, value, options);
-  });
-
-  return response;
+  return redirectWithCookies(destination);
 }
