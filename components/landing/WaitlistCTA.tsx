@@ -32,19 +32,19 @@ export function WaitlistCTA() {
     <motion.section
       id="waitlist"
       {...fadeUpInView(reduce)}
-      className="scroll-mt-24 bg-primary px-6 py-24 sm:py-32"
+      className="mx-6 mb-8 scroll-mt-24 overflow-hidden rounded-[32px] bg-slate-950 px-6 py-24 text-center text-white sm:py-32"
     >
-      <div className="mx-auto max-w-2xl text-center">
-        <h2 className="text-4xl font-bold tracking-tight text-white md:text-5xl">
-          Be the first to try Orbi
+      <div className="mx-auto max-w-2xl">
+        <h2 className="text-5xl font-black tracking-[-0.04em] md:text-6xl">
+          Stay on top of
+          <br />
+          <span className="text-indigo-400">Everything.</span>
         </h2>
-        <p className="mt-4 text-lg text-indigo-100">
-          No spam. Early access to students and founders first.
-        </p>
+        <p className="mt-5 text-slate-400">Join the waitlist. No spam, ever.</p>
 
         {status === "done" ? (
-          <p className="mt-10 text-2xl font-semibold text-white">
-            You&apos;re on the list 🎉
+          <p className="mt-10 text-xl font-semibold text-white">
+            You&apos;re on the list.
           </p>
         ) : (
           <form
@@ -58,30 +58,24 @@ export function WaitlistCTA() {
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@university.edu"
               disabled={status === "loading"}
-              className="h-14 w-full rounded-full bg-white px-6 text-slate-900 outline-none transition-all duration-300 placeholder:text-slate-400 focus:ring-2 focus:ring-white/70 disabled:opacity-70"
+              className="h-14 w-full rounded-full border border-white/20 bg-white/10 px-6 text-white outline-none transition placeholder:text-slate-500 focus:border-white/40 disabled:opacity-70"
             />
             <button
               type="submit"
               disabled={status === "loading"}
-              className="group relative inline-flex h-14 shrink-0 items-center justify-center gap-2 overflow-hidden rounded-full bg-indigo-700 px-7 font-semibold text-white transition-all duration-300 hover:bg-indigo-800 disabled:opacity-70"
+              className="inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-full bg-indigo-500 px-8 font-semibold text-white transition hover:bg-indigo-400 disabled:opacity-70"
             >
-              <span
-                aria-hidden="true"
-                className="animate-shimmer pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-              />
-              <span className="relative z-10 inline-flex items-center gap-2">
-                {status === "loading" ? (
-                  <LoaderCircle size={18} className="animate-spin" />
-                ) : (
-                  "Join waitlist"
-                )}
-              </span>
+              {status === "loading" ? (
+                <LoaderCircle size={18} className="animate-spin" />
+              ) : (
+                "Join waitlist"
+              )}
             </button>
           </form>
         )}
 
         {status === "error" && (
-          <p className="mt-3 text-sm text-indigo-100">
+          <p className="mt-3 text-sm text-slate-400">
             Something went wrong. Please try again.
           </p>
         )}

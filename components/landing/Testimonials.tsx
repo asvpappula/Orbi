@@ -53,32 +53,14 @@ const TESTIMONIALS: Testimonial[] = [
 const ROW_ONE = TESTIMONIALS.slice(0, 4);
 const ROW_TWO = TESTIMONIALS.slice(4);
 
-function avatarUrl(name: string) {
-  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
-    name,
-  )}&background=random&color=fff&size=64`;
-}
-
 function Card({ quote, name, role }: Testimonial) {
   return (
-    <figure className="mr-5 flex w-[340px] shrink-0 flex-col gap-4 rounded-2xl bg-white p-6 shadow-[0_18px_50px_-28px_rgba(15,23,42,0.25)] ring-1 ring-slate-100">
-      <blockquote className="text-[15px] leading-relaxed text-slate-700">
+    <figure className="mr-4 w-[320px] shrink-0 rounded-2xl bg-[#fafafa] px-6 py-5 ring-1 ring-black/5">
+      <blockquote className="text-sm leading-relaxed text-slate-600">
         &ldquo;{quote}&rdquo;
       </blockquote>
-      <figcaption className="flex items-center gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={avatarUrl(name)}
-          alt={name}
-          width={48}
-          height={48}
-          loading="lazy"
-          className="size-12 rounded-full"
-        />
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{name}</p>
-          <p className="text-xs text-slate-500">{role}</p>
-        </div>
+      <figcaption className="mt-3 text-xs font-medium text-slate-400">
+        — {name}, {role}
       </figcaption>
     </figure>
   );
@@ -91,18 +73,13 @@ export function Testimonials() {
     <motion.section
       id="testimonials"
       {...fadeUpInView(reduce)}
-      className="scroll-mt-24 overflow-hidden bg-white py-24 sm:py-32"
+      className="scroll-mt-24 overflow-hidden bg-white py-32 sm:py-40"
     >
-      <div className="px-6">
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary">
-          Testimonials
-        </p>
-        <h2 className="mx-auto mt-4 max-w-2xl text-center text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
-          Loved by students and founders
-        </h2>
-      </div>
+      <h2 className="mb-12 px-6 text-4xl font-bold tracking-tight text-slate-900">
+        People who let Orbi run their week.
+      </h2>
 
-      <div className="mt-14 space-y-5">
+      <div className="space-y-4">
         <div className="group flex overflow-hidden">
           <div className="flex w-max animate-scroll-left group-hover:[animation-play-state:paused]">
             {[...ROW_ONE, ...ROW_ONE].map((t, i) => (

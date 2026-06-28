@@ -1,26 +1,39 @@
 "use client";
 
+import { ArrowDown, Orbit } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { fadeUpInView } from "./motion";
 
-const PROBLEMS = [
+const BUBBLES = [
   {
-    num: "01",
-    emoji: "🗂️",
-    title: "Scattered everywhere",
-    body: "Your assignments are in Canvas, emails in Gmail, messages in Slack and Discord. Nothing talks to each other.",
+    app: "Gmail",
+    text: "Prof. Lee: The deadline has been moved to—",
+    pos: "left-[1%] top-[6%] rotate-[-3deg]",
   },
   {
-    num: "02",
-    emoji: "🤖",
-    title: "AI that actually knows you",
-    body: "Learns how you write and think, drafts replies in your exact voice. You just confirm.",
+    app: "Canvas",
+    text: "Assignment due in 2 hours",
+    pos: "right-[2%] top-[0%] rotate-[2deg]",
   },
   {
-    num: "03",
-    emoji: "✅",
-    title: "One calm place",
-    body: "Everything urgent surfaces automatically. Reply to anyone without switching apps.",
+    app: "GitHub",
+    text: "PR review requested",
+    pos: "left-[34%] top-[30%] rotate-[-1deg]",
+  },
+  {
+    app: "Slack",
+    text: "@here standup in 5min",
+    pos: "left-[6%] top-[62%] rotate-[2deg]",
+  },
+  {
+    app: "Discord",
+    text: "Study group: anyone have the notes?",
+    pos: "right-[3%] top-[55%] rotate-[-2deg]",
+  },
+  {
+    app: "Calendar",
+    text: "CS 101 · 3:00 PM",
+    pos: "right-[28%] top-[78%] rotate-[3deg]",
   },
 ];
 
@@ -31,53 +44,53 @@ export function Problem() {
     <motion.section
       id="features"
       {...fadeUpInView(reduce)}
-      className="scroll-mt-24 bg-white px-6 py-24 sm:py-32"
+      className="scroll-mt-24 bg-white px-6 py-32 sm:py-40"
     >
-      <div className="mx-auto max-w-6xl">
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.22em] text-primary">
-          The problem
-        </p>
-        <h2 className="mx-auto mt-4 max-w-2xl text-center text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
-          You&apos;re juggling too many tabs.
+      <div className="mx-auto max-w-5xl">
+        <h2 className="mx-auto max-w-3xl text-center text-[clamp(2.75rem,6vw,4.5rem)] font-black leading-[1.02] tracking-[-0.05em] text-slate-950">
+          You have 11 tabs open{" "}
+          <span className="font-thin text-slate-400">right now.</span>
         </h2>
 
-        <div className="mt-14 grid gap-6 md:grid-cols-3">
-          {PROBLEMS.map((item, index) => (
+        <div className="relative mx-auto mt-20 h-72 max-w-4xl sm:h-80">
+          {BUBBLES.map((bubble, index) => (
             <motion.div
-              key={item.num}
-              initial={reduce ? false : { opacity: 0, y: 24 }}
-              whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
+              key={bubble.app}
+              initial={reduce ? false : { opacity: 0, scale: 0.9 }}
+              whileInView={reduce ? undefined : { opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: "-80px" }}
               transition={
-                reduce
-                  ? undefined
-                  : { duration: 0.5, delay: index * 0.15, ease: [0.22, 1, 0.36, 1] }
+                reduce ? undefined : { delay: index * 0.1, duration: 0.4 }
               }
+              className={`absolute ${bubble.pos}`}
             >
               <motion.div
-                whileHover={
+                animate={reduce ? undefined : { y: [0, -6, 0] }}
+                transition={
                   reduce
                     ? undefined
-                    : { y: -6, boxShadow: "0 20px 40px rgba(99,102,241,0.15)" }
+                    : {
+                        duration: 3 + index * 0.4,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }
                 }
-                transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                className="h-full rounded-2xl bg-white p-8 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.18)] ring-1 ring-slate-100 transition-all duration-300"
+                className="rounded-2xl bg-white px-4 py-3 shadow-lg ring-1 ring-black/10"
               >
-                <div className="flex items-center gap-3">
-                  <span className="grid size-10 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                    {item.num}
-                  </span>
-                  <span className="text-2xl" aria-hidden="true">
-                    {item.emoji}
-                  </span>
-                </div>
-                <h3 className="mt-5 text-xl font-semibold tracking-[-0.02em] text-slate-900">
-                  {item.title}
-                </h3>
-                <p className="mt-2 leading-relaxed text-slate-500">{item.body}</p>
+                <span className="whitespace-nowrap text-xs font-medium text-slate-700">
+                  {bubble.text}
+                </span>
               </motion.div>
             </motion.div>
           ))}
+        </div>
+
+        <div className="mt-12 flex flex-col items-center gap-5">
+          <ArrowDown size={40} strokeWidth={1} className="text-slate-300" />
+          <Orbit size={48} className="text-indigo-500" />
+          <p className="text-2xl font-semibold text-slate-900">
+            Orbi sorts it all.
+          </p>
         </div>
       </div>
     </motion.section>
