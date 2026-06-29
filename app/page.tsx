@@ -560,7 +560,7 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
-        <section className="pb-24 overflow-hidden">
+        <section className="pt-16 pb-24 overflow-hidden">
           <div className="mb-12 px-6 text-center">
             <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-indigo-500">
               See it in action
