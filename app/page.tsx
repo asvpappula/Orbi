@@ -43,7 +43,7 @@ const ORBI_CARDS: CardStackItem[] = [
   {
     id: 5,
     title: "Cross-App Context",
-    description: "See the assignment, email, and chat thread together.",
+    description: "See the assignment, email, and Discord thread — together.",
     imageSrc:
       "https://images.unsplash.com/photo-1558591710-4b4a1ae0f665?w=800&q=80",
     href: "#waitlist",
@@ -57,7 +57,7 @@ export default function Home() {
       <main>
         <Hero />
         <section className="overflow-hidden py-24">
-          <div className="mb-16 px-6 text-center">
+          <div className="mb-12 px-6 text-center">
             <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-indigo-500">
               See it in action
             </p>
@@ -65,7 +65,16 @@ export default function Home() {
               Every view, one app.
             </h2>
           </div>
-          <CardStack items={ORBI_CARDS} />
+          <div className="mx-auto w-full max-w-5xl px-8">
+            <CardStack
+              items={ORBI_CARDS}
+              initialIndex={2}
+              autoAdvance
+              intervalMs={2500}
+              pauseOnHover
+              showDots
+            />
+          </div>
         </section>
         <Problem />
         <Features />
