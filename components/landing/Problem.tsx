@@ -1,98 +1,154 @@
 "use client";
 
-import { ArrowDown, Orbit } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
-import { fadeUpInView } from "./motion";
+import { motion } from "framer-motion";
 
-const BUBBLES = [
+const NOTIFICATIONS = [
   {
-    app: "Gmail",
-    text: "Prof. Lee: The deadline has been moved to—",
-    pos: "left-[1%] top-[6%] rotate-[-3deg]",
+    source: "Gmail",
+    msg: "Prof Lee: deadline moved to Friday",
+    x: "8%",
+    y: "10%",
   },
   {
-    app: "Canvas",
-    text: "Assignment due in 2 hours",
-    pos: "right-[2%] top-[0%] rotate-[2deg]",
+    source: "Canvas",
+    msg: "Assignment due in 2 hours",
+    x: "62%",
+    y: "5%",
   },
   {
-    app: "GitHub",
-    text: "PR review requested",
-    pos: "left-[34%] top-[30%] rotate-[-1deg]",
+    source: "Slack",
+    msg: "#eng · standup in 5 min",
+    x: "75%",
+    y: "40%",
   },
   {
-    app: "Slack",
-    text: "@here standup in 5min",
-    pos: "left-[6%] top-[62%] rotate-[2deg]",
+    source: "Discord",
+    msg: "Anyone have the notes?",
+    x: "5%",
+    y: "55%",
   },
   {
-    app: "Discord",
-    text: "Study group: anyone have the notes?",
-    pos: "right-[3%] top-[55%] rotate-[-2deg]",
+    source: "GitHub",
+    msg: "PR review requested",
+    x: "55%",
+    y: "68%",
   },
   {
-    app: "Calendar",
-    text: "CS 101 · 3:00 PM",
-    pos: "right-[28%] top-[78%] rotate-[3deg]",
+    source: "Calendar",
+    msg: "CS 101 · 3:00 PM today",
+    x: "25%",
+    y: "72%",
   },
 ];
 
+const SOURCE_COLORS: Record<string, string> = {
+  Gmail: "bg-red-500",
+  Canvas: "bg-[#d5273e]",
+  Slack: "bg-purple-500",
+  Discord: "bg-indigo-500",
+  GitHub: "bg-slate-800",
+  Calendar: "bg-blue-500",
+};
+
 export function Problem() {
-  const reduce = useReducedMotion() ?? false;
-
   return (
-    <motion.section
+    <section
       id="features"
-      {...fadeUpInView(reduce)}
-      className="scroll-mt-24 bg-white px-6 py-32 sm:py-40"
+      className="scroll-mt-24 overflow-hidden px-6 py-32"
     >
-      <div className="mx-auto max-w-5xl">
-        <h2 className="mx-auto max-w-3xl text-center text-[clamp(2.75rem,6vw,4.5rem)] font-black leading-[1.02] tracking-[-0.05em] text-slate-950">
-          You have 11 tabs open{" "}
-          <span className="font-thin text-slate-400">right now.</span>
+      <div className="mx-auto mb-16 max-w-5xl text-center">
+        <h2 className="text-5xl font-black tracking-[-0.04em] text-slate-950 md:text-6xl">
+          You have 11 tabs open
+          <span className="block font-thin text-slate-400">right now.</span>
         </h2>
+      </div>
 
-        <div className="relative mx-auto mt-20 h-72 max-w-4xl sm:h-80">
-          {BUBBLES.map((bubble, index) => (
-            <motion.div
-              key={bubble.app}
-              initial={reduce ? false : { opacity: 0, scale: 0.9 }}
-              whileInView={reduce ? undefined : { opacity: 1, scale: 1 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={
-                reduce ? undefined : { delay: index * 0.1, duration: 0.4 }
-              }
-              className={`absolute ${bubble.pos}`}
-            >
-              <motion.div
-                animate={reduce ? undefined : { y: [0, -6, 0] }}
-                transition={
-                  reduce
-                    ? undefined
-                    : {
-                        duration: 3 + index * 0.4,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }
-                }
-                className="rounded-2xl bg-white px-4 py-3 shadow-lg ring-1 ring-black/10"
-              >
-                <span className="whitespace-nowrap text-xs font-medium text-slate-700">
-                  {bubble.text}
-                </span>
-              </motion.div>
-            </motion.div>
-          ))}
-        </div>
+      <div className="relative mx-auto h-[420px] max-w-4xl">
+        <svg
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          viewBox="0 0 800 420"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M 80 60 C 80 200, 400 350, 400 420"
+            stroke="#e0e7ff"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 200 30 C 220 180, 400 330, 400 420"
+            stroke="#e0e7ff"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 500 20 C 480 180, 400 320, 400 420"
+            stroke="#e0e7ff"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 660 50 C 600 200, 410 340, 400 420"
+            stroke="#e0e7ff"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 340 10 C 360 180, 395 300, 400 420"
+            stroke="#c7d2fe"
+            strokeWidth="1"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 560 80 C 520 220, 405 350, 400 420"
+            stroke="#6366f1"
+            strokeWidth="2"
+            strokeLinecap="round"
+            opacity="0.4"
+          />
+          <path
+            d="M 130 30 C 200 200, 395 360, 400 420"
+            stroke="#6366f1"
+            strokeWidth="2"
+            strokeLinecap="round"
+            opacity="0.3"
+          />
+        </svg>
 
-        <div className="mt-12 flex flex-col items-center gap-5">
-          <ArrowDown size={40} strokeWidth={1} className="text-slate-300" />
-          <Orbit size={48} className="text-indigo-500" />
-          <p className="text-2xl font-semibold text-slate-900">
+        {NOTIFICATIONS.map((notification, index) => (
+          <motion.div
+            key={notification.source}
+            className="absolute w-52 rounded-2xl bg-white px-4 py-3 shadow-lg ring-1 ring-black/[0.08]"
+            style={{ left: notification.x, top: notification.y }}
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: index * 0.1, duration: 0.5 }}
+          >
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500">
+                {notification.source}
+              </span>
+              <span
+                className={`size-2 rounded-full ${SOURCE_COLORS[notification.source]}`}
+              />
+            </div>
+            <p className="text-sm font-medium leading-snug text-slate-800">
+              {notification.msg}
+            </p>
+          </motion.div>
+        ))}
+
+        <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2">
+          <div className="flex size-12 items-center justify-center rounded-full bg-indigo-500 shadow-lg shadow-indigo-200">
+            <span className="text-lg font-black text-white">O</span>
+          </div>
+          <p className="text-sm font-semibold text-slate-500">
             Orbi sorts it all.
           </p>
         </div>
       </div>
-    </motion.section>
+    </section>
   );
 }

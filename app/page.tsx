@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { CardStack, type CardStackItem } from "@/components/ui/card-stack";
 import { Features } from "@/components/landing/Features";
+import { FlowLines } from "@/components/landing/FlowLines";
 import { Footer } from "@/components/landing/Footer";
 import { Hero } from "@/components/landing/Hero";
 import { Navbar } from "@/components/landing/Navbar";
@@ -560,6 +561,8 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
+        <Problem />
+        <FlowLines />
         <section className="pt-16 pb-24 overflow-hidden">
           <div className="mb-12 px-6 text-center">
             <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-indigo-500">
@@ -583,7 +586,6 @@ export default function Home() {
             />
           </div>
         </section>
-        <Problem />
         <Features />
         <Testimonials />
         <WaitlistCTA />
