@@ -28,7 +28,7 @@ export function HeroWithMockup({
     <section
       className={cn(
         "relative overflow-hidden bg-background text-foreground",
-        "px-4 py-16 sm:py-24 md:py-32",
+        "px-4 pt-16 sm:pt-24 md:pt-32 pb-0",
         className,
       )}
     >
@@ -76,6 +76,7 @@ export function HeroWithMockup({
           />
         </div>
       </div>
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-b from-transparent to-white z-20" />
     </section>
   );
 }
