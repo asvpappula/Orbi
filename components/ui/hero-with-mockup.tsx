@@ -54,7 +54,7 @@ export function HeroWithMockup({
           </div>
         </div>
 
-        <div className="relative w-full">
+        <div className="relative w-full pb-16">
           <MockupFrame
             className="animate-appear opacity-0 [animation-delay:700ms]"
             size="small"
@@ -76,7 +76,7 @@ export function HeroWithMockup({
           />
         </div>
       </div>
-      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-b from-transparent to-white z-20" />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-64 bg-gradient-to-b from-transparent to-white z-20" />
     </section>
   );
 }
