@@ -139,28 +139,30 @@ export function Problem() {
           </motion.article>
         ))}
 
-        <motion.div
-          className="absolute left-1/2 top-[488px] z-20 flex -translate-x-1/2 flex-col items-center gap-1"
-          initial={{ opacity: 0, scale: 0.6 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true }}
-          transition={{
-            delay: 0.72,
-            duration: 0.55,
-            type: "spring",
-            stiffness: 240,
-            damping: 18,
-          }}
-        >
-          <div className="relative grid size-12 place-items-center rounded-full bg-indigo-500 text-white shadow-lg shadow-indigo-200">
-            <span className="absolute -inset-3 -z-10 rounded-full bg-indigo-200/55 blur-md" />
-            <span className="absolute -inset-1 rounded-full ring-1 ring-indigo-300/50" />
-            <Orbit size={22} strokeWidth={2.4} />
-          </div>
-          <p className="whitespace-nowrap text-sm font-semibold text-slate-500">
-            Orbi sorts it all.
-          </p>
-        </motion.div>
+        <div className="absolute left-1/2 top-[488px] z-20 -translate-x-1/2">
+          <motion.div
+            className="flex flex-col items-center gap-1"
+            initial={{ opacity: 0, scale: 0.6 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{
+              delay: 0.72,
+              duration: 0.55,
+              type: "spring",
+              stiffness: 240,
+              damping: 18,
+            }}
+          >
+            <div className="relative grid size-12 place-items-center rounded-full bg-indigo-500 text-white shadow-lg shadow-indigo-200">
+              <span className="absolute -inset-3 -z-10 rounded-full bg-indigo-200/55 blur-md" />
+              <span className="absolute -inset-1 rounded-full ring-1 ring-indigo-300/50" />
+              <Orbit size={22} strokeWidth={2.4} />
+            </div>
+            <p className="whitespace-nowrap text-sm font-semibold text-slate-500">
+              Orbi sorts it all.
+            </p>
+          </motion.div>
+        </div>
       </div>
     </section>
   );
